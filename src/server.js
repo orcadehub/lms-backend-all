@@ -24,10 +24,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms')
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+// Database connection with serverless optimization
+const connectDB = async () => {
+  try {
+    if (mongoose.connections[0].readyState) {
+      return mongoose.connections[0];
+    }
+    
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      maxIdleTimeMS: 30000
+    });
+    
+    console.log('MongoDB connected');
+    return conn;
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    throw err;
+  }
+};
+
+// Connect to database
+connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -46,6 +68,69 @@ app.use('/api/quiz-attempts', quizAttemptRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'LMS API is running' });
+});
+
+// Debug endpoint to check tenants (remove in production)
+app.get('/api/debug/tenants', async (req, res) => {
+  try {
+    const Tenant = require('./models/Tenant');
+    const tenants = await Tenant.find({}, { name: 1, domain: 1, apiKey: 1, isActive: 1 }).limit(5);
+    res.json({ 
+      count: tenants.length,
+      tenants: tenants.map(t => ({
+        name: t.name,
+        domain: t.domain,
+        apiKey: t.apiKey ? t.apiKey.substring(0, 8) + '...' : 'None',
+        isActive: t.isActive
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin endpoint to create tenant in production
+app.post('/api/admin/create-tenant', async (req, res) => {
+  try {
+    const Tenant = require('./models/Tenant');
+    
+    // Check if tenant already exists
+    const existing = await Tenant.findOne({ domain: 'localhost:3001' });
+    if (existing) {
+      return res.json({ 
+        message: 'Tenant already exists',
+        apiKey: existing.apiKey,
+        tenantId: existing._id
+      });
+    }
+
+    // Create tenant with specific API key
+    const tenant = new Tenant({
+      name: 'Customer A',
+      companyName: 'Customer A Company', 
+      adminEmail: 'orcadehub2@gmail.com',
+      domain: 'localhost:3001',
+      apiEndpoint: 'https://lms-backend-all.vercel.app/api',
+      allowedDomains: ['localhost:3001', 'orcode.in'],
+      themeColor: '#1976d2',
+      logoUrl: 'https://coffee-geographical-ape-289.mypinata.cloud/ipfs/bafkreidw4alnkntpnmcqnpc3fck7utrjgxjgao5ocltqdsgyhf4ux6kyua',
+      apiKey: 'fb8c49afd8d76d45b016100f1e5fb820de63d927305b7c13459be512645da278',
+      settings: {
+        allowedOrigins: ['http://localhost:3001', 'https://orcode.in'],
+        features: ['quizzes', 'assessments', 'reports'],
+        apiUsageLimit: 10000
+      }
+    });
+
+    await tenant.save();
+    res.json({ 
+      message: 'Tenant created successfully',
+      apiKey: tenant.apiKey,
+      tenantId: tenant._id
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Check IP access for quiz
