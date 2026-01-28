@@ -83,13 +83,7 @@ const tenantController = {
     try {
       const tenant = req.tenant; // From API key middleware
       
-      res.json({
-        name: tenant.name,
-        companyName: tenant.companyName,
-        logoUrl: tenant.logoUrl,
-        themeColor: tenant.themeColor,
-        features: tenant.settings.features
-      });
+      res.json(tenant);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
