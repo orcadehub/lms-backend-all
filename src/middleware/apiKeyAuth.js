@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const validateApiKey = async (req, res, next) => {
   try {
     // Ensure database connection
-    if (mongoose.connection.readyState !== 1) {
+    if (!mongoose.connection.readyState) {
       await mongoose.connect(process.env.MONGODB_URI, {
         bufferCommands: false,
         serverSelectionTimeoutMS: 5000,

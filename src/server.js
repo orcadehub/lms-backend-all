@@ -25,13 +25,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection with serverless optimization
+let isConnected = false;
+
 const connectDB = async () => {
+  if (isConnected) {
+    return;
+  }
+  
   try {
-    if (mongoose.connections[0].readyState) {
-      return mongoose.connections[0];
-    }
-    
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
       bufferCommands: false,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
@@ -40,8 +42,8 @@ const connectDB = async () => {
       maxIdleTimeMS: 30000
     });
     
+    isConnected = true;
     console.log('MongoDB connected');
-    return conn;
   } catch (err) {
     console.error('MongoDB connection error:', err);
     throw err;
@@ -73,6 +75,7 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint to check tenants (remove in production)
 app.get('/api/debug/tenants', async (req, res) => {
   try {
+    await connectDB();
     const Tenant = require('./models/Tenant');
     const tenants = await Tenant.find({}, { name: 1, domain: 1, apiKey: 1, isActive: 1 }).limit(5);
     res.json({ 
@@ -92,6 +95,7 @@ app.get('/api/debug/tenants', async (req, res) => {
 // Admin endpoint to create tenant in production
 app.post('/api/admin/create-tenant', async (req, res) => {
   try {
+    await connectDB();
     const Tenant = require('./models/Tenant');
     
     // Check if tenant already exists
