@@ -5,15 +5,6 @@ const mongoose = require('mongoose');
 // API Key validation middleware
 const validateApiKey = async (req, res, next) => {
   try {
-    // Ensure database connection
-    if (!mongoose.connection.readyState) {
-      await mongoose.connect(process.env.MONGODB_URI, {
-        bufferCommands: false,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000
-      });
-    }
-
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
     
     console.log('API Key validation - Headers:', {
@@ -37,12 +28,12 @@ const validateApiKey = async (req, res, next) => {
     const tenant = await Tenant.findOne({ 
       apiKeyHash: hashedKey,
       isActive: true
-    }).maxTimeMS(5000);
+    }).maxTimeMS(10000);
 
     if (!tenant) {
       console.log('API Key validation failed: No matching tenant found');
       // Also try to find by plain API key for debugging
-      const tenantByPlainKey = await Tenant.findOne({ apiKey: apiKey }).maxTimeMS(5000);
+      const tenantByPlainKey = await Tenant.findOne({ apiKey: apiKey }).maxTimeMS(10000);
       if (tenantByPlainKey) {
         console.log('Found tenant by plain key - hash mismatch issue');
       }

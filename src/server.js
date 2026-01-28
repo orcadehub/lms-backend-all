@@ -25,25 +25,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection with serverless optimization
-let isConnected = false;
+let cachedConnection = null;
 
 const connectDB = async () => {
-  if (isConnected) {
-    return;
+  if (cachedConnection) {
+    return cachedConnection;
   }
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 10,
+      maxPoolSize: 1,
       minPoolSize: 0,
-      maxIdleTimeMS: 30000
+      maxIdleTimeMS: 30000,
+      retryWrites: true
     });
     
-    isConnected = true;
+    cachedConnection = conn;
     console.log('MongoDB connected');
+    return conn;
   } catch (err) {
     console.error('MongoDB connection error:', err);
     throw err;
@@ -67,7 +68,30 @@ app.use('/api/quiz-questions', quizQuestionRoutes);
 app.use('/api/questions', quizQuestionRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
 
-// Simple hash test endpoint
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'LMS API is running' });
+});
+
+// Connection test endpoint
+app.get('/api/test-connection', async (req, res) => {
+  try {
+    await connectDB();
+    const Tenant = require('./models/Tenant');
+    const count = await Tenant.countDocuments();
+    res.json({ 
+      status: 'Connected',
+      tenantCount: count,
+      mongoUri: process.env.MONGODB_URI ? 'Present' : 'Missing'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'Failed',
+      error: error.message,
+      mongoUri: process.env.MONGODB_URI ? 'Present' : 'Missing'
+    });
+  }
+});
 app.get('/api/test-hash', (req, res) => {
   const crypto = require('crypto');
   const apiKey = '9331c6d98ac526818d3a4a477fdeed3440e864069c6057c70f2573dee8ca405a';
