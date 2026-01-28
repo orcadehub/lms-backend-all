@@ -1,5 +1,6 @@
 const Tenant = require('../models/Tenant');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 // API Key validation middleware
 const validateApiKey = async (req, res, next) => {

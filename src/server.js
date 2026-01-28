@@ -67,12 +67,43 @@ app.use('/api/quiz-questions', quizQuestionRoutes);
 app.use('/api/questions', quizQuestionRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'LMS API is running' });
+// Simple hash test endpoint
+app.get('/api/test-hash', (req, res) => {
+  const crypto = require('crypto');
+  const apiKey = '9331c6d98ac526818d3a4a477fdeed3440e864069c6057c70f2573dee8ca405a';
+  const calculatedHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const expectedHash = '84cba0832327384c77b3952f4a77102f497e0326eba9ea35ef9febb5027700f9';
+  
+  res.json({
+    apiKey: apiKey,
+    calculatedHash: calculatedHash,
+    expectedHash: expectedHash,
+    match: calculatedHash === expectedHash
+  });
 });
 
-// Debug endpoint to check tenants (remove in production)
+// Debug hash checker
+app.get('/api/debug/hash/:apikey', async (req, res) => {
+  try {
+    const crypto = require('crypto');
+    const apiKey = req.params.apikey;
+    const calculatedHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    
+    await connectDB();
+    const Tenant = require('./models/Tenant');
+    const tenant = await Tenant.findOne({ apiKey: apiKey });
+    
+    res.json({
+      providedKey: apiKey,
+      calculatedHash: calculatedHash,
+      tenantFound: !!tenant,
+      storedHash: tenant?.apiKeyHash || 'Not found',
+      hashMatch: tenant?.apiKeyHash === calculatedHash
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 app.get('/api/debug/tenants', async (req, res) => {
   try {
     await connectDB();
