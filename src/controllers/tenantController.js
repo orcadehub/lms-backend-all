@@ -7,7 +7,8 @@ const path = require('path');
 // Configure multer for logo uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/logos/');
+    const uploadPath = process.env.NODE_ENV === 'production' ? '/tmp/uploads/logos/' : 'uploads/logos/';
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);

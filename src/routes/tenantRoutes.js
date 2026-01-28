@@ -7,7 +7,10 @@ const multer = require('multer');
 const router = express.Router();
 
 // Configure multer for logo uploads
-const upload = multer({ dest: 'uploads/logos/' });
+const upload = multer({ 
+  dest: process.env.NODE_ENV === 'production' ? '/tmp/uploads/logos/' : 'uploads/logos/',
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 // Public endpoint - Get tenant config (requires API key)
 router.get('/config', validateApiKey, tenantController.getTenantConfig);

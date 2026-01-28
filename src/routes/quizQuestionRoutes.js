@@ -11,7 +11,8 @@ const router = express.Router();
 // Configure multer for Excel uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/excel');
+    const uploadPath = process.env.NODE_ENV === 'production' ? '/tmp/uploads/excel' : 'uploads/excel';
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + '-' + file.originalname);
