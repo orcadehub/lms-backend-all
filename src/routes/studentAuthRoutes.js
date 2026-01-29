@@ -12,7 +12,11 @@ router.post('/student/login', validateApiKey, async (req, res) => {
     const { email, password } = req.body;
     const tenantId = req.tenantId; // From API key middleware
 
-    console.log('Student login attempt:', email, 'for tenant:', req.tenant.name);
+    console.log('=== LOGIN DEBUG ===');
+    console.log('Email:', email);
+    console.log('Tenant ID from API key:', tenantId);
+    console.log('Tenant name:', req.tenant.name);
+    console.log('==================');
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -25,6 +29,13 @@ router.post('/student/login', validateApiKey, async (req, res) => {
       isActive: true
     });
 
+    console.log('Student found:', !!student);
+    if (student) {
+      console.log('Student tenant:', student.tenant);
+      console.log('Expected tenant:', tenantId);
+      console.log('Tenant match:', student.tenant.toString() === tenantId.toString());
+    }
+
     if (!student) {
       console.log('Student not found or not in tenant:', email);
       return res.status(401).json({ 
@@ -34,6 +45,8 @@ router.post('/student/login', validateApiKey, async (req, res) => {
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, student.password);
+    console.log('Password valid:', isValidPassword);
+    
     if (!isValidPassword) {
       console.log('Invalid password for student:', email);
       return res.status(401).json({ 
