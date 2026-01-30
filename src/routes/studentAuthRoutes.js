@@ -495,6 +495,65 @@ router.post('/student/attempt/:attemptId/resume', validateApiKey, async (req, re
   }
 });
 
+// Update system info periodically
+router.post('/student/attempt/:attemptId/system-info', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { attemptId } = req.params;
+    const { systemInfo } = req.body;
+
+    const QuizAttempt = require('../models/QuizAttempt');
+    await QuizAttempt.findByIdAndUpdate(attemptId, {
+      $push: { 'sessionData.systemInfo': { ...systemInfo, timestamp: new Date() } }
+    });
+
+    res.json({ message: 'System info updated' });
+  } catch (error) {
+    console.error('Error updating system info:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Store session start info
+router.post('/student/quiz/:quizId/session-start', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId;
+    const tenantId = req.tenantId;
+    const { quizId } = req.params;
+    const { startIP, systemInfo, startTime } = req.body;
+
+    const QuizAttempt = require('../models/QuizAttempt');
+    const attempt = await QuizAttempt.findOne({
+      student: studentId,
+      quiz: quizId,
+      tenant: tenantId
+    }).sort({ createdAt: -1 });
+
+    if (attempt) {
+      await QuizAttempt.findByIdAndUpdate(attempt._id, {
+        'sessionData.startIP': startIP,
+        $push: { 'sessionData.systemInfo': { ...systemInfo, timestamp: new Date(startTime) } },
+        'sessionData.sessionStartTime': new Date(startTime)
+      });
+    }
+
+    res.json({ message: 'Session start data stored' });
+  } catch (error) {
+    console.error('Error storing session start:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Submit quiz
 router.post('/student/attempt/:attemptId/submit', validateApiKey, async (req, res) => {
   try {
@@ -504,7 +563,7 @@ router.post('/student/attempt/:attemptId/submit', validateApiKey, async (req, re
     }
 
     const { attemptId } = req.params;
-    const { answers, submissionReason, timeUsedSeconds } = req.body;
+    const { answers, submissionReason, timeUsedSeconds, endIP, endTime } = req.body;
 
     const QuizAttempt = require('../models/QuizAttempt');
     const Quiz = require('../models/Quiz');
@@ -579,6 +638,13 @@ router.post('/student/attempt/:attemptId/submit', validateApiKey, async (req, re
     attempt.timeUsedSeconds = actualTimeUsed;
     attempt.completedAt = new Date();
     attempt.attemptStatus = submissionReason === 'TAB_SWITCH_VIOLATION' ? 'TAB_SWITCH_VIOLATION' : 'COMPLETED';
+    
+    // Store end session data
+    if (endIP || endTime) {
+      attempt.sessionData = attempt.sessionData || {};
+      if (endIP) attempt.sessionData.endIP = endIP;
+      if (endTime) attempt.sessionData.sessionEndTime = new Date(endTime);
+    }
     
     await attempt.save();
     res.json({ message: 'Quiz submitted successfully', score, totalQuestions: quiz.questions.length });

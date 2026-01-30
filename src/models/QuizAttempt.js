@@ -103,6 +103,30 @@ const quizAttemptSchema = new mongoose.Schema({
   },
   instructorRemarks: {
     type: String
+  },
+  sessionData: {
+    startIP: {
+      type: String
+    },
+    endIP: {
+      type: String
+    },
+    systemInfo: [{
+      userAgent: String,
+      platform: String,
+      language: String,
+      screenResolution: String,
+      timezone: String,
+      cookieEnabled: Boolean,
+      onlineStatus: Boolean,
+      timestamp: Date
+    }],
+    sessionStartTime: {
+      type: Date
+    },
+    sessionEndTime: {
+      type: Date
+    }
   }
 }, {
   timestamps: true
