@@ -13,21 +13,22 @@ const auth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
     let user = null;
+    let userId = decoded.userId || decoded.studentId; // Handle both formats
     
     if (decoded.role === 'admin') {
-      user = await Admin.findById(decoded.userId).select('-password');
+      user = await Admin.findById(userId).select('-password');
     } else if (decoded.role === 'instructor') {
-      user = await Instructor.findById(decoded.userId).select('-password');
+      user = await Instructor.findById(userId).select('-password');
     } else if (decoded.role === 'student') {
-      user = await Student.findById(decoded.userId).select('-password');
+      user = await Student.findById(userId).select('-password');
     }
     
     if (!user) {
       return res.status(401).json({ message: 'Token is not valid' });
     }
 
-    req.userId = decoded.userId;
-    req.user = user;
+    req.userId = userId;
+    req.user = { ...user.toObject(), id: userId, _id: userId };
     next();
   } catch (error) {
     res.status(401).json({ message: 'Token is not valid' });

@@ -14,6 +14,9 @@ const batchRoutes = require('./routes/batchRoutes');
 const quizQuestionRoutes = require('./routes/quizQuestionRoutes');
 const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
 const studentAuthRoutes = require('./routes/studentAuthRoutes');
+const practiceRoutes = require('./routes/practiceRoutes');
+const adminPracticeRoutes = require('./routes/adminPracticeRoutes');
+const practiceSubmissionRoutes = require('./routes/practiceSubmissionRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -57,6 +60,9 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', studentAuthRoutes);
+app.use('/api/auth', practiceRoutes);
+app.use('/api/admin/practice', adminPracticeRoutes);
+app.use('/api/practice-submissions', practiceSubmissionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/quizzes', quizRoutes);
