@@ -16,6 +16,7 @@ const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
 const studentAuthRoutes = require('./routes/studentAuthRoutes');
 const practiceRoutes = require('./routes/practiceRoutes');
 const adminPracticeRoutes = require('./routes/adminPracticeRoutes');
+const studentPracticeRoutes = require('./routes/studentPracticeRoutes');
 const practiceSubmissionRoutes = require('./routes/practiceSubmissionRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -62,6 +63,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', studentAuthRoutes);
 app.use('/api/auth', practiceRoutes);
 app.use('/api/admin/practice', adminPracticeRoutes);
+app.use('/api/student/practice', studentPracticeRoutes);
 app.use('/api/practice-submissions', practiceSubmissionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
