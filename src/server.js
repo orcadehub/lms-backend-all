@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -18,13 +20,35 @@ const practiceRoutes = require('./routes/practiceRoutes');
 const adminPracticeRoutes = require('./routes/adminPracticeRoutes');
 const studentPracticeRoutes = require('./routes/studentPracticeRoutes');
 const practiceSubmissionRoutes = require('./routes/practiceSubmissionRoutes');
+const assessmentQuestionRoutes = require('./routes/assessmentQuestionRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
+const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Make io available to routes
+app.set('io', io);
+
 const PORT = process.env.PORT || 4000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001', 
+    'https://orcode.in',
+    'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -74,7 +98,10 @@ app.use('/api/students', studentRoutes);
 app.use('/api/batches', batchRoutes);
 app.use('/api/quiz-questions', quizQuestionRoutes);
 app.use('/api/questions', quizQuestionRoutes);
+app.use('/api/assessment-questions', assessmentQuestionRoutes);
+app.use('/api/assessments', assessmentRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -225,6 +252,40 @@ app.post('/api/check-quiz-access', async (req, res) => {
   }
 });
 
+// Check IP access for assessment
+app.post('/api/check-assessment-access', async (req, res) => {
+  try {
+    const { assessmentId, userIP } = req.body;
+    
+    const Assessment = require('./models/Assessment');
+    const assessment = await Assessment.findById(assessmentId);
+    
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    const hasAccess = !assessment.allowedIPs || assessment.allowedIPs.length === 0 || assessment.allowedIPs.includes(userIP);
+    
+    res.json({
+      hasAccess,
+      userIP,
+      allowedIPs: assessment.allowedIPs || [],
+      message: hasAccess ? 'Access granted' : 'Access denied - IP not authorized'
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
 // Error handling middleware
 app.use(errorHandler);
 
@@ -233,6 +294,6 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

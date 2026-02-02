@@ -33,6 +33,9 @@ router.delete('/:id', auth, checkPermission('create_quizzes'), quizController.de
 // Get quiz attempts for instructor monitoring
 router.get('/:id/attempts', auth, checkPermission('create_quizzes'), quizController.getQuizAttempts);
 
+// Export quiz results to Excel
+router.get('/:id/results', auth, checkPermission('create_quizzes'), quizController.exportQuizResults);
+
 // Update quiz start time
 router.patch('/:id/update-time', auth, checkPermission('create_quizzes'), quizController.updateQuizTime);
 

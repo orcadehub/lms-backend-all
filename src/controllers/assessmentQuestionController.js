@@ -1,0 +1,88 @@
+const AssessmentQuestion = require('../models/AssessmentQuestion');
+const Instructor = require('../models/Instructor');
+
+const assessmentQuestionController = {
+  // Get all assessment questions by type
+  getQuestionsByType: async (req, res) => {
+    try {
+      const { type } = req.query;
+      const questions = await AssessmentQuestion.find({ 
+        assessmentType: type
+      }).sort({ createdAt: -1 });
+      
+      res.json(questions);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Create new assessment question
+  createQuestion: async (req, res) => {
+    try {
+      const question = new AssessmentQuestion({
+        ...req.body,
+        createdBy: req.user._id || req.user.id
+      });
+
+      await question.save();
+      res.status(201).json({ message: 'Question created successfully', question });
+    } catch (error) {
+      console.error('Error creating question:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Get question by ID
+  getQuestionById: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const question = await AssessmentQuestion.findById(id);
+      
+      if (!question) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+      
+      res.json(question);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Update question
+  updateQuestion: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const question = await AssessmentQuestion.findByIdAndUpdate(
+        id,
+        req.body,
+        { new: true }
+      );
+      
+      if (!question) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+      
+      res.json({ message: 'Question updated successfully', question });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Delete question
+  deleteQuestion: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const question = await AssessmentQuestion.findByIdAndDelete(id);
+      
+      if (!question) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+      
+      res.json({ message: 'Question deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  }
+};
+
+module.exports = assessmentQuestionController;

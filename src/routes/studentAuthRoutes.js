@@ -554,105 +554,106 @@ router.post('/student/quiz/:quizId/session-start', validateApiKey, async (req, r
   }
 });
 
-// Submit quiz
-router.post('/student/attempt/:attemptId/submit', validateApiKey, async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+    // Submit quiz
+    router.post('/student/attempt/:attemptId/submit', validateApiKey, async (req, res) => {
+      try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) {
+          return res.status(401).json({ message: 'No token provided' });
+        }
 
-    const { attemptId } = req.params;
-    const { answers, submissionReason, timeUsedSeconds, endIP, endTime } = req.body;
+        const { attemptId } = req.params;
+        const { answers, submissionReason, timeUsedSeconds, endIP, endTime } = req.body;
 
-    const QuizAttempt = require('../models/QuizAttempt');
-    const Quiz = require('../models/Quiz');
-    
-    const attempt = await QuizAttempt.findById(attemptId).populate('quiz');
-    if (!attempt) {
-      return res.status(404).json({ message: 'Attempt not found' });
-    }
+        const QuizAttempt = require('../models/QuizAttempt');
+        const Quiz = require('../models/Quiz');
+        
+        const attempt = await QuizAttempt.findById(attemptId).populate('quiz');
+        if (!attempt) {
+          return res.status(404).json({ message: 'Attempt not found' });
+        }
 
-    // Calculate actual time used if not provided
-    let actualTimeUsed = timeUsedSeconds;
-    if (!actualTimeUsed) {
-      const startTime = new Date(attempt.startedAt);
-      const now = new Date();
-      actualTimeUsed = Math.floor((now - startTime) / 1000);
-    }
+        // Calculate actual time used if not provided
+        let actualTimeUsed = timeUsedSeconds;
+        if (!actualTimeUsed) {
+          const startTime = new Date(attempt.startedAt);
+          const now = new Date();
+          actualTimeUsed = Math.floor((now - startTime) / 1000);
+        }
 
-    // Calculate score from answers array (only attempted questions)
-    let score = 0;
-    const quiz = attempt.quiz;
-    
-    // Always use the submitted answers for score calculation
-    console.log('Using quiz answers map for score calculation');
-    console.log('Quiz answers map:', quiz.answers);
-    
-    Object.entries(answers).forEach(([questionId, selectedAnswer]) => {
-      const correctAnswer = quiz.answers?.get(questionId);
-      console.log('Question ID:', questionId);
-      console.log('Selected answer:', selectedAnswer);
-      console.log('Correct answer:', correctAnswer);
-      console.log('Match:', selectedAnswer === correctAnswer);
-      
-      if (selectedAnswer === correctAnswer) {
-        score++;
+        // Calculate score from answers array (only attempted questions)
+        let score = 0;
+        const quiz = attempt.quiz;
+        
+        // Always use the submitted answers for score calculation
+        console.log('Using quiz answers map for score calculation');
+        console.log('Quiz answers map:', quiz.answers);
+        
+        Object.entries(answers).forEach(([questionId, selectedAnswer]) => {
+          const correctAnswer = quiz.answers?.get(questionId);
+          console.log('Question ID:', questionId);
+          console.log('Selected answer:', selectedAnswer);
+          console.log('Correct answer:', correctAnswer);
+          console.log('Match:', selectedAnswer === correctAnswer);
+          
+          if (selectedAnswer === correctAnswer) {
+            score++;
+          }
+          console.log('---');
+        });
+        console.log('Final score:', score);
+
+        // Update attempt
+        attempt.answers = Object.entries(answers).map(([questionId, selectedAnswer]) => {
+          // Skip invalid entries
+          if (!selectedAnswer || typeof selectedAnswer === 'object') {
+            return null;
+          }
+          
+          const question = quiz.questions.find(q => q._id.toString() === questionId);
+          let isCorrect = false;
+          
+          console.log('Processing question:', questionId);
+          console.log('Selected answer:', selectedAnswer);
+          console.log('Question found:', !!question);
+          
+          if (question && selectedAnswer && question.options && question.options[question.correctAnswer]) {
+            // Get the correct answer text from the options array using the correctAnswer index
+            const correctAnswerText = question.options[question.correctAnswer].text;
+            console.log('Correct answer index:', question.correctAnswer);
+            console.log('Correct answer text:', correctAnswerText);
+            console.log('Match:', selectedAnswer === correctAnswerText);
+            isCorrect = selectedAnswer === correctAnswerText;
+          }
+          
+          return {
+            questionId,
+            selectedAnswer,
+            isCorrect
+          };
+        }).filter(answer => answer !== null);
+        
+        attempt.score = score;
+        attempt.timeTaken = Math.ceil(actualTimeUsed / 60);
+        attempt.timeUsedSeconds = actualTimeUsed;
+        attempt.completedAt = new Date();
+        attempt.attemptStatus = ['TAB_SWITCH_VIOLATION', 'FULLSCREEN_EXIT_VIOLATION', 'SYSTEM_CHANGE_VIOLATION'].includes(submissionReason) ? 'TAB_SWITCH_VIOLATION' : 'COMPLETED';
+    attempt.submissionReason = submissionReason;
+        
+        // Store end session data
+        if (endIP || endTime) {
+          attempt.sessionData = attempt.sessionData || {};
+          if (endIP) attempt.sessionData.endIP = endIP;
+          if (endTime) attempt.sessionData.sessionEndTime = new Date(endTime);
+        }
+        
+        await attempt.save();
+        res.json({ message: 'Quiz submitted successfully', score, totalQuestions: quiz.questions.length });
+      } catch (error) {
+        console.error('Error submitting quiz:', error);
+        res.status(500).json({ message: 'Server error' });
       }
-      console.log('---');
     });
-    console.log('Final score:', score);
-
-    // Update attempt
-    attempt.answers = Object.entries(answers).map(([questionId, selectedAnswer]) => {
-      // Skip invalid entries
-      if (!selectedAnswer || typeof selectedAnswer === 'object') {
-        return null;
-      }
-      
-      const question = quiz.questions.find(q => q._id.toString() === questionId);
-      let isCorrect = false;
-      
-      console.log('Processing question:', questionId);
-      console.log('Selected answer:', selectedAnswer);
-      console.log('Question found:', !!question);
-      
-      if (question && selectedAnswer && question.options && question.options[question.correctAnswer]) {
-        // Get the correct answer text from the options array using the correctAnswer index
-        const correctAnswerText = question.options[question.correctAnswer].text;
-        console.log('Correct answer index:', question.correctAnswer);
-        console.log('Correct answer text:', correctAnswerText);
-        console.log('Match:', selectedAnswer === correctAnswerText);
-        isCorrect = selectedAnswer === correctAnswerText;
-      }
-      
-      return {
-        questionId,
-        selectedAnswer,
-        isCorrect
-      };
-    }).filter(answer => answer !== null);
-    
-    attempt.score = score;
-    attempt.timeTaken = Math.ceil(actualTimeUsed / 60);
-    attempt.timeUsedSeconds = actualTimeUsed;
-    attempt.completedAt = new Date();
-    attempt.attemptStatus = submissionReason === 'TAB_SWITCH_VIOLATION' ? 'TAB_SWITCH_VIOLATION' : 'COMPLETED';
-    
-    // Store end session data
-    if (endIP || endTime) {
-      attempt.sessionData = attempt.sessionData || {};
-      if (endIP) attempt.sessionData.endIP = endIP;
-      if (endTime) attempt.sessionData.sessionEndTime = new Date(endTime);
-    }
-    
-    await attempt.save();
-    res.json({ message: 'Quiz submitted successfully', score, totalQuestions: quiz.questions.length });
-  } catch (error) {
-    console.error('Error submitting quiz:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 // Update tab switch count
 router.patch('/student/attempt/:attemptId/tab-switch', validateApiKey, async (req, res) => {
@@ -663,12 +664,30 @@ router.patch('/student/attempt/:attemptId/tab-switch', validateApiKey, async (re
     }
 
     const { attemptId } = req.params;
-    const { tabSwitchCount } = req.body;
 
+    // Try to update QuizAttempt first
     const QuizAttempt = require('../models/QuizAttempt');
-    await QuizAttempt.findByIdAndUpdate(attemptId, { tabSwitchCount });
+    let updated = await QuizAttempt.findByIdAndUpdate(
+      attemptId, 
+      { $inc: { tabSwitchCount: 1 } },
+      { new: true }
+    );
+    
+    // If not found in QuizAttempt, try AssessmentAttempt
+    if (!updated) {
+      const AssessmentAttempt = require('../models/AssessmentAttempt');
+      updated = await AssessmentAttempt.findByIdAndUpdate(
+        attemptId, 
+        { $inc: { tabSwitchCount: 1 } },
+        { new: true }
+      );
+    }
+    
+    if (!updated) {
+      return res.status(404).json({ message: 'Attempt not found' });
+    }
 
-    res.json({ message: 'Tab switch count updated' });
+    res.json({ message: 'Tab switch count updated', count: updated.tabSwitchCount });
   } catch (error) {
     console.error('Error updating tab switch count:', error);
     res.status(500).json({ message: 'Server error' });
@@ -684,12 +703,30 @@ router.patch('/student/attempt/:attemptId/fullscreen-exit', validateApiKey, asyn
     }
 
     const { attemptId } = req.params;
-    const { fullscreenExitCount } = req.body;
 
+    // Try to update QuizAttempt first
     const QuizAttempt = require('../models/QuizAttempt');
-    await QuizAttempt.findByIdAndUpdate(attemptId, { fullscreenExitCount });
+    let updated = await QuizAttempt.findByIdAndUpdate(
+      attemptId, 
+      { $inc: { fullscreenExitCount: 1 } },
+      { new: true }
+    );
+    
+    // If not found in QuizAttempt, try AssessmentAttempt
+    if (!updated) {
+      const AssessmentAttempt = require('../models/AssessmentAttempt');
+      updated = await AssessmentAttempt.findByIdAndUpdate(
+        attemptId, 
+        { $inc: { fullscreenExitCount: 1 } },
+        { new: true }
+      );
+    }
+    
+    if (!updated) {
+      return res.status(404).json({ message: 'Attempt not found' });
+    }
 
-    res.json({ message: 'Fullscreen exit count updated' });
+    res.json({ message: 'Fullscreen exit count updated', count: updated.fullscreenExitCount });
   } catch (error) {
     console.error('Error updating fullscreen exit count:', error);
     res.status(500).json({ message: 'Server error' });
@@ -836,5 +873,398 @@ router.get('/student/leaderboard', validateApiKey, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Get student assessments
+router.get('/student/assessments', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const tenantId = req.tenantId;
+
+    const Assessment = require('../models/Assessment');
+    const assessments = await Assessment.find({
+      tenantId: tenantId
+    }).select('title description duration questions status createdAt startTime');
+
+    res.json(assessments);
+  } catch (error) {
+    console.error('Error fetching student assessments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get assessment details
+router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+
+    const Assessment = require('../models/Assessment');
+    const assessment = await Assessment.findOne({
+      _id: assessmentId,
+      tenantId: tenantId
+    }).populate('questions').select('title description duration questions status createdAt startTime earlyStartBuffer maxTabSwitches allowedLanguages showKeyInsights showAlgorithmSteps');
+
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    res.json(assessment);
+  } catch (error) {
+    console.error('Error fetching assessment details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get assessment attempts
+router.get('/student/assessment/:assessmentId/attempts', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId;
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const attempts = await AssessmentAttempt.find({
+      student: studentId,
+      assessment: assessmentId,
+      tenantId: tenantId
+    }).sort({ createdAt: -1 });
+
+    res.json(attempts);
+  } catch (error) {
+    console.error('Error fetching assessment attempts:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get current assessment attempt
+router.get('/student/assessment/:assessmentId/attempt', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId;
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const attempt = await AssessmentAttempt.findOne({
+      student: studentId,
+      assessment: assessmentId,
+      tenantId: tenantId
+    }).sort({ createdAt: -1 });
+
+    res.json(attempt);
+  } catch (error) {
+    console.error('Error fetching assessment attempt:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Start new assessment attempt
+router.post('/student/assessment/:assessmentId/start', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId;
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+    const { systemInfo, startIP } = req.body;
+
+    const Assessment = require('../models/Assessment');
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    // Check for existing attempts
+    const existingAttempts = await AssessmentAttempt.find({
+      student: studentId,
+      assessment: assessmentId,
+      tenantId: tenantId
+    }).sort({ attemptNumber: -1 });
+
+    const latestAttempt = existingAttempts[0];
+    
+    // Check if user can start/resume
+    if (latestAttempt) {
+      if (latestAttempt.attemptStatus === 'IN_PROGRESS') {
+        return res.json(latestAttempt);
+      }
+      if (latestAttempt.attemptStatus === 'RESUME_ALLOWED') {
+        // Update status to IN_PROGRESS and return the attempt
+        latestAttempt.attemptStatus = 'IN_PROGRESS';
+        latestAttempt.resumeCount = (latestAttempt.resumeCount || 0) + 1;
+        latestAttempt.resumedAt = new Date();
+        await latestAttempt.save();
+        return res.json(latestAttempt);
+      }
+      if (latestAttempt.attemptStatus === 'RETAKE_ALLOWED') {
+        // Reset the existing attempt for retake instead of creating new one
+        const assessment = await Assessment.findById(assessmentId);
+        
+        latestAttempt.attemptStatus = 'IN_PROGRESS';
+        latestAttempt.startedAt = new Date();
+        latestAttempt.remainingTimeSeconds = assessment.duration * 60;
+        latestAttempt.completedAt = null;
+        latestAttempt.answers = [];
+        latestAttempt.score = null;
+        latestAttempt.timeTaken = null;
+        latestAttempt.timeUsedSeconds = null;
+        latestAttempt.submissionReason = null;
+        latestAttempt.tabSwitchCount = 0;
+        latestAttempt.fullscreenExitCount = 0;
+        latestAttempt.lastExecutedCode = {};
+        latestAttempt.successfulCodes = {};
+        latestAttempt.retakeCount = (latestAttempt.retakeCount || 0) + 1;
+        latestAttempt.retakenAt = new Date();
+        
+        await latestAttempt.save();
+        return res.json(latestAttempt);
+      }
+      
+      // User has completed/terminated attempts and no permission
+      return res.status(403).json({ 
+        message: 'Assessment already attempted. Contact instructor for retake permission.',
+        latestAttempt: {
+          status: latestAttempt.attemptStatus,
+          completedAt: latestAttempt.completedAt
+        }
+      });
+    }
+    
+    // First attempt
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    const attempt = new AssessmentAttempt({
+      student: studentId,
+      assessment: assessmentId,
+      tenantId: tenantId,
+      attemptNumber: 1,
+      totalQuestions: assessment.questions.length,
+      startedAt: new Date(),
+      remainingTimeSeconds: assessment.duration * 60,
+      attemptStatus: 'IN_PROGRESS'
+    });
+
+    await attempt.save();
+    
+    // Update with session data after save
+    await AssessmentAttempt.findByIdAndUpdate(attempt._id, {
+      'sessionData.startIP': startIP,
+      $push: { 'sessionData.systemInfo': { ...systemInfo, timestamp: new Date() } },
+      'sessionData.sessionStartTime': new Date()
+    });
+    
+    res.json(attempt);
+  } catch (error) {
+    console.error('Error starting assessment attempt:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Submit assessment
+router.post('/student/assessment/:assessmentId/submit', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { assessmentId } = req.params;
+    const { answers, submissionReason, timeUsedSeconds, endIP, endTime, attemptId } = req.body;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const attempt = await AssessmentAttempt.findById(attemptId);
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' });
+    }
+
+    // Calculate actual time used if not provided
+    let actualTimeUsed = timeUsedSeconds;
+    if (!actualTimeUsed) {
+      const startTime = new Date(attempt.startedAt);
+      const now = new Date();
+      actualTimeUsed = Math.floor((now - startTime) / 1000);
+    }
+
+    // Update attempt
+    attempt.answers = answers;
+    attempt.timeTaken = Math.ceil(actualTimeUsed / 60);
+    attempt.timeUsedSeconds = actualTimeUsed;
+    attempt.completedAt = new Date();
+    attempt.attemptStatus = ['TAB_SWITCH_VIOLATION', 'FULLSCREEN_EXIT_VIOLATION', 'SYSTEM_CHANGE_VIOLATION'].includes(submissionReason) ? 'TAB_SWITCH_VIOLATION' : 'COMPLETED';
+    attempt.submissionReason = submissionReason;
+    
+    // Store end session data
+    if (endIP || endTime) {
+      attempt.sessionData = attempt.sessionData || {};
+      if (endIP) attempt.sessionData.endIP = endIP;
+      if (endTime) attempt.sessionData.sessionEndTime = new Date(endTime);
+    }
+    
+    await attempt.save();
+    res.json({ message: 'Assessment submitted successfully' });
+  } catch (error) {
+    console.error('Error submitting assessment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update system info for assessment
+router.post('/student/assessment-attempt/:attemptId/system-info', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { attemptId } = req.params;
+    const { systemInfo, endIP, connectionLost, reason, heartbeat, timestamp } = req.body;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const updateData = {};
+    
+    // Handle different types of system events
+    if (connectionLost) {
+      updateData['$push'] = { 'sessionData.connectionEvents': { 
+        type: 'CONNECTION_LOST', 
+        timestamp: new Date(timestamp || Date.now()) 
+      }};
+    } else if (reason === 'BROWSER_CLOSE') {
+      updateData['$push'] = { 'sessionData.connectionEvents': { 
+        type: 'BROWSER_CLOSE', 
+        timestamp: new Date(timestamp || Date.now()) 
+      }};
+    } else if (heartbeat) {
+      updateData['sessionData.lastHeartbeat'] = new Date(timestamp || Date.now());
+    } else if (systemInfo) {
+      updateData['$push'] = { 'sessionData.systemInfo': { ...systemInfo, timestamp: new Date() } };
+    }
+    
+    // Update end IP if provided
+    if (endIP) {
+      updateData['sessionData.endIP'] = endIP;
+    }
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, updateData);
+
+    res.json({ message: 'System info updated' });
+  } catch (error) {
+    console.error('Error updating assessment system info:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+// Get last executed code
+router.get('/student/assessment-attempt/:attemptId/last-code', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' })
+    }
+
+    const { attemptId } = req.params
+    const AssessmentAttempt = require('../models/AssessmentAttempt')
+    const attempt = await AssessmentAttempt.findById(attemptId)
+    
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' })
+    }
+
+    res.json({ lastExecutedCode: attempt.lastExecutedCode || {} })
+  } catch (error) {
+    console.error('Error getting last executed code:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// Save code to backend
+router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' })
+    }
+
+    const { attemptId } = req.params
+    const { questionId, language, code, isSuccessful, testResults } = req.body
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt')
+    const attempt = await AssessmentAttempt.findById(attemptId)
+    
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' })
+    }
+
+    // Update last executed code
+    const lastExecutedCode = attempt.lastExecutedCode || {}
+    if (!lastExecutedCode[questionId]) lastExecutedCode[questionId] = {}
+    lastExecutedCode[questionId][language] = code
+    
+    // Update successful codes if submission was successful
+    const successfulCodes = attempt.successfulCodes || {}
+    if (isSuccessful) {
+      if (!successfulCodes[questionId]) successfulCodes[questionId] = {}
+      successfulCodes[questionId][language] = code
+    }
+    
+    // Calculate percentage for this question if testResults provided
+    const questionPercentages = attempt.questionPercentages || {}
+    if (testResults && testResults.length > 0) {
+      const passedTests = testResults.filter(result => result.passed === true).length
+      const totalTests = testResults.length
+      const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
+      questionPercentages[questionId] = percentage
+    }
+    
+    // Calculate overall percentage (sum of all question percentages / total questions)
+    const percentageValues = Object.values(questionPercentages)
+    const totalQuestions = attempt.totalQuestions || 0
+    const overallPercentage = totalQuestions > 0 
+      ? Math.round(percentageValues.reduce((sum, p) => sum + p, 0) / totalQuestions)
+      : 0
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      lastExecutedCode,
+      successfulCodes,
+      questionPercentages,
+      overallPercentage
+    })
+
+    res.json({ 
+      message: 'Code saved successfully',
+      questionPercentage: questionPercentages[questionId] || 0,
+      overallPercentage
+    })
+  } catch (error) {
+    console.error('Error saving code:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
 
 module.exports = router;

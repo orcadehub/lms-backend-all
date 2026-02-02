@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const Quiz = require('../models/Quiz');
+const ExcelJS = require('exceljs');
 
 const quizController = {
   // Get all quizzes for tenant
@@ -199,7 +200,7 @@ const quizController = {
     try {
       console.log('Update quiz request body:', req.body);
       const { id } = req.params;
-      const { startTime, earlyStartBuffer, maxTabSwitches, status, allowedIPs } = req.body;
+      const { startTime, earlyStartBuffer, maxTabSwitches, status, allowedIPs, duration } = req.body;
       
       const updateData = {
         earlyStartBuffer: earlyStartBuffer || 0
@@ -215,6 +216,10 @@ const quizController = {
       
       if (status) {
         updateData.status = status;
+      }
+      
+      if (duration !== undefined && duration >= 1 && duration <= 300) {
+        updateData.duration = duration;
       }
       
       if (allowedIPs !== undefined) {
@@ -233,6 +238,13 @@ const quizController = {
       if (allowedIPs !== undefined) {
         quiz.allowedIPs = allowedIPs;
         await quiz.save();
+      }
+      
+      // Emit real-time update to all connected clients
+      const io = req.app.get('io');
+      if (io) {
+        console.log('Emitting quiz-updated event for quiz:', id);
+        io.emit('quiz-updated', { quizId: id, quiz });
       }
       
       console.log('Updated quiz allowedIPs:', quiz.allowedIPs);
@@ -261,6 +273,119 @@ const quizController = {
       
       res.json({ message: 'Question updated successfully', question });
     } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Export quiz results to Excel
+  exportQuizResults: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const QuizAttempt = require('../models/QuizAttempt');
+      
+      const quiz = await Quiz.findById(id).populate('questions');
+      if (!quiz) {
+        return res.status(404).json({ message: 'Quiz not found' });
+      }
+      
+      const attempts = await QuizAttempt.find({ quiz: id })
+        .populate('student', 'name email')
+        .sort({ createdAt: -1 });
+      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Quiz Results');
+      
+      // Define columns
+      worksheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 25 },
+        { header: 'Total Questions', key: 'totalQuestions', width: 15 },
+        { header: 'Attempted', key: 'attempted', width: 12 },
+        { header: 'Unattempted', key: 'unattempted', width: 12 },
+        { header: 'Correct', key: 'correct', width: 10 },
+        { header: 'Wrong', key: 'wrong', width: 10 },
+        { header: 'Percentage', key: 'percentage', width: 12 },
+        { header: 'Tab Switches', key: 'tabSwitches', width: 12 },
+        { header: 'Fullscreen Exits', key: 'fullscreenExits', width: 15 },
+        { header: 'Start IP', key: 'startIP', width: 15 },
+        { header: 'End IP', key: 'endIP', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Started At', key: 'startedAt', width: 20 },
+        { header: 'Completed At', key: 'completedAt', width: 20 },
+        { header: 'Time Used', key: 'timeUsed', width: 12 },
+        { header: 'Remaining Time', key: 'remainingTime', width: 15 },
+        { header: 'Resume Count', key: 'resumeCount', width: 12 },
+        { header: 'Attempt Number', key: 'attemptNumber', width: 15 },
+        { header: 'Session Data', key: 'sessionData', width: 50 }
+      ];
+      
+      // Style header row
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+      
+      // Sort attempts by percentage in descending order
+      attempts.sort((a, b) => {
+        const totalQuestionsA = a.totalQuestions || quiz.questions.length;
+        const totalQuestionsB = b.totalQuestions || quiz.questions.length;
+        const percentageA = totalQuestionsA > 0 ? ((a.score || 0) / totalQuestionsA) * 100 : 0;
+        const percentageB = totalQuestionsB > 0 ? ((b.score || 0) / totalQuestionsB) * 100 : 0;
+        return percentageB - percentageA;
+      });
+      
+      // Add data rows
+      attempts.forEach(attempt => {
+        const totalQuestions = attempt.totalQuestions || quiz.questions.length;
+        const attempted = Object.keys(attempt.answers || {}).length;
+        const unattempted = totalQuestions - attempted;
+        const correct = attempt.score || 0;
+        const wrong = attempted - correct;
+        const percentage = totalQuestions > 0 ? ((correct / totalQuestions) * 100).toFixed(2) : '0.00';
+        
+        const sessionData = [
+          attempt.sessionData?.systemInfo?.map((info, index) => 
+            `Session ${index + 1}: Browser: ${info.userAgent} | Platform: ${info.platform} | Screen: ${info.screenResolution} | Timezone: ${info.timezone} | Timestamp: ${new Date(info.timestamp).toLocaleString()}`
+          ).join(' || ') || '',
+          attempt.sessionData?.sessionStartTime ? `Session Start: ${new Date(attempt.sessionData.sessionStartTime).toLocaleString()}` : '',
+          attempt.sessionData?.sessionEndTime ? `Session End: ${new Date(attempt.sessionData.sessionEndTime).toLocaleString()}` : ''
+        ].filter(info => info).join(' | ');
+        
+        worksheet.addRow({
+          name: attempt.student?.name || 'Unknown',
+          email: attempt.student?.email || 'N/A',
+          totalQuestions,
+          attempted,
+          unattempted,
+          correct,
+          wrong,
+          percentage: percentage + '%',
+          tabSwitches: attempt.tabSwitchCount || 0,
+          fullscreenExits: attempt.fullscreenExitCount || 0,
+          startIP: attempt.sessionData?.startIP || 'N/A',
+          endIP: attempt.sessionData?.endIP || attempt.sessionData?.startIP || 'N/A',
+          status: attempt.attemptStatus || 'N/A',
+          startedAt: attempt.startedAt ? new Date(attempt.startedAt).toLocaleString() : 'N/A',
+          completedAt: attempt.completedAt ? new Date(attempt.completedAt).toLocaleString() : 'N/A',
+          timeUsed: attempt.timeUsedSeconds ? Math.floor(attempt.timeUsedSeconds / 60) + 'm ' + (attempt.timeUsedSeconds % 60) + 's' : '0m 0s',
+          remainingTime: attempt.remainingTimeSeconds ? Math.floor(attempt.remainingTimeSeconds / 60) + 'm ' + (attempt.remainingTimeSeconds % 60) + 's' : '0m 0s',
+          resumeCount: attempt.resumeCount || 0,
+          attemptNumber: attempt.attemptNumber || 1,
+          sessionData
+        });
+      });
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${quiz.title}_results.xlsx"`);
+      
+      // Write to response
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error('Error exporting quiz results:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
