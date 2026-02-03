@@ -51,7 +51,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -108,9 +108,34 @@ app.use('/api/assessments', assessmentRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'LMS API is running' });
+// Debug environment variables endpoint
+app.get('/api/debug/env', (req, res) => {
+  res.json({
+    environment: {
+      NODE_ENV: process.env.NODE_ENV || 'undefined',
+      PORT: process.env.PORT || 'undefined',
+      MONGODB_URI: process.env.MONGODB_URI ? 'Present' : 'Missing',
+      JWT_SECRET: process.env.JWT_SECRET ? 'Present' : 'Missing'
+    },
+    mongodb: {
+      connectionState: mongoose.connection.readyState,
+      connectionStates: {
+        0: 'disconnected',
+        1: 'connected', 
+        2: 'connecting',
+        3: 'disconnecting'
+      },
+      currentState: {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting', 
+        3: 'disconnecting'
+      }[mongoose.connection.readyState],
+      host: mongoose.connection.host || 'undefined',
+      name: mongoose.connection.name || 'undefined'
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Connection test endpoint
