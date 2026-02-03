@@ -43,6 +43,7 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost:5173',
     'http://localhost:3001', 
     'https://orcode.in',
     'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
