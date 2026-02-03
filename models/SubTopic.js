@@ -32,4 +32,9 @@ const subTopicSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+subTopicSchema.index({ topicId: 1, isActive: 1, order: 1 }); // Get subtopics by topic sorted by order
+subTopicSchema.index({ topicId: 1, difficulty: 1 }); // Filter by topic and difficulty
+subTopicSchema.index({ isActive: 1, order: 1 }); // Get active subtopics sorted by order
+
 module.exports = mongoose.model('SubTopic', subTopicSchema);

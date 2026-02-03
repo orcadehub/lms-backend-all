@@ -27,4 +27,9 @@ const topicSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+topicSchema.index({ isActive: 1, order: 1 }); // Get active topics sorted by order
+topicSchema.index({ difficulty: 1, isActive: 1 }); // Filter by difficulty
+topicSchema.index({ order: 1 }); // Sort by order
+
 module.exports = mongoose.model('Topic', topicSchema);

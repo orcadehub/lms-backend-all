@@ -96,4 +96,13 @@ const assessmentSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+assessmentSchema.index({ tenantId: 1, isActive: 1 }); // Get active assessments by tenant
+assessmentSchema.index({ tenantId: 1, status: 1 }); // Get assessments by status and tenant
+assessmentSchema.index({ createdBy: 1, tenantId: 1 }); // Get assessments by instructor
+assessmentSchema.index({ students: 1 }); // Find assessments for specific student
+assessmentSchema.index({ batches: 1 }); // Find assessments for specific batch
+assessmentSchema.index({ startTime: 1, status: 1 }); // Time-based queries
+assessmentSchema.index({ type: 1, difficulty: 1 }); // Filter by type and difficulty
+
 module.exports = mongoose.model('Assessment', assessmentSchema);

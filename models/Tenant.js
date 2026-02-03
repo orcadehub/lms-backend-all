@@ -78,6 +78,13 @@ const tenantSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+tenantSchema.index({ domain: 1 }, { unique: true }); // Already unique, but explicit index
+tenantSchema.index({ apiKeyHash: 1 }, { unique: true }); // Fast API key lookup
+tenantSchema.index({ isActive: 1 }); // Get active tenants
+tenantSchema.index({ adminEmail: 1 }); // Find tenant by admin email
+tenantSchema.index({ lastAccess: 1 }); // Sort by last access
+
 // Generate API key before saving
 tenantSchema.pre('save', function(next) {
   if (this.isNew && !this.apiKey) {

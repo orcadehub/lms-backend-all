@@ -95,4 +95,12 @@ const courseSchema = new mongoose.Schema({
 // Index for search
 courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
+// Additional indexes for API optimization
+courseSchema.index({ instructor: 1, isPublished: 1 }); // Get courses by instructor
+courseSchema.index({ category: 1, level: 1, isPublished: 1 }); // Filter by category and level
+courseSchema.index({ isPublished: 1, 'rating.average': -1 }); // Get published courses sorted by rating
+courseSchema.index({ 'enrolledStudents.student': 1 }); // Find courses by enrolled student
+courseSchema.index({ price: 1, isPublished: 1 }); // Filter by price
+courseSchema.index({ tags: 1, isPublished: 1 }); // Filter by tags
+
 module.exports = mongoose.model('Course', courseSchema);

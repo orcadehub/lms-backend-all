@@ -64,6 +64,11 @@ const studentSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for login optimization
+studentSchema.index({ email: 1 }); // Single field index for email
+studentSchema.index({ email: 1, tenant: 1 }); // Compound index for multi-tenant login
+studentSchema.index({ tenant: 1, isActive: 1 }); // Index for active students by tenant
+
 studentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);

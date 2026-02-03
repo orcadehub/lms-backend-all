@@ -49,6 +49,12 @@ const instructorSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+instructorSchema.index({ email: 1 }, { unique: true }); // Already unique, but explicit index
+instructorSchema.index({ assignedTenants: 1 }); // Find instructors by tenant
+instructorSchema.index({ isActive: 1 }); // Get active instructors
+instructorSchema.index({ email: 1, isActive: 1 }); // Login optimization
+
 instructorSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);

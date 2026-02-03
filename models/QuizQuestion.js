@@ -58,4 +58,11 @@ const quizQuestionSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+quizQuestionSchema.index({ tenant: 1, isActive: 1 }); // Get questions by tenant
+quizQuestionSchema.index({ createdBy: 1, tenant: 1 }); // Get questions by instructor
+quizQuestionSchema.index({ topic: 1, difficulty: 1 }); // Filter by topic and difficulty
+quizQuestionSchema.index({ tags: 1 }); // Search by tags
+quizQuestionSchema.index({ difficulty: 1 }); // Filter by difficulty
+
 module.exports = mongoose.model('QuizQuestion', quizQuestionSchema);

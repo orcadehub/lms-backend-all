@@ -29,4 +29,11 @@ const assessmentQuestionSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Instructor', required: true }
 }, { timestamps: true });
 
+// Indexes for API optimization
+assessmentQuestionSchema.index({ createdBy: 1, isActive: 1 }); // Get questions by instructor
+assessmentQuestionSchema.index({ assessmentType: 1, difficulty: 1 }); // Filter by type and difficulty
+assessmentQuestionSchema.index({ tags: 1 }); // Search by tags
+assessmentQuestionSchema.index({ difficulty: 1, isActive: 1 }); // Filter by difficulty
+assessmentQuestionSchema.index({ isActive: 1 }); // Get active questions
+
 module.exports = mongoose.model('AssessmentQuestion', assessmentQuestionSchema);

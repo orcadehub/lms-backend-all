@@ -151,4 +151,14 @@ const assessmentAttemptSchema = new mongoose.Schema({
 // Ensure unique attempt numbers per student per assessment
 assessmentAttemptSchema.index({ student: 1, assessment: 1, attemptNumber: 1 }, { unique: true });
 
+// Additional indexes for API optimization
+assessmentAttemptSchema.index({ student: 1, assessment: 1 }); // Get attempts by student and assessment
+assessmentAttemptSchema.index({ assessment: 1, attemptStatus: 1 }); // Get attempts by assessment and status
+assessmentAttemptSchema.index({ tenantId: 1, attemptStatus: 1 }); // Get attempts by tenant and status
+assessmentAttemptSchema.index({ student: 1, attemptStatus: 1 }); // Get attempts by student and status
+assessmentAttemptSchema.index({ completedAt: 1 }); // Sort by completion time
+assessmentAttemptSchema.index({ startedAt: 1 }); // Sort by start time
+assessmentAttemptSchema.index({ overallPercentage: -1 }); // Sort by percentage (descending)
+assessmentAttemptSchema.index({ score: -1 }); // Sort by score (descending)
+
 module.exports = mongoose.model('AssessmentAttempt', assessmentAttemptSchema);

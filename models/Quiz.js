@@ -79,4 +79,12 @@ const quizSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for API optimization
+quizSchema.index({ tenant: 1, isActive: 1 }); // Get active quizzes by tenant
+quizSchema.index({ tenant: 1, status: 1 }); // Get quizzes by status and tenant
+quizSchema.index({ createdBy: 1, tenant: 1 }); // Get quizzes by instructor
+quizSchema.index({ students: 1 }); // Find quizzes for specific student
+quizSchema.index({ batches: 1 }); // Find quizzes for specific batch
+quizSchema.index({ startTime: 1, status: 1 }); // Time-based queries
+
 module.exports = mongoose.model('Quiz', quizSchema);

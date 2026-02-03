@@ -20,6 +20,7 @@ const practiceRoutes = require('./routes/practiceRoutes');
 const adminPracticeRoutes = require('./routes/adminPracticeRoutes');
 const studentPracticeRoutes = require('./routes/studentPracticeRoutes');
 const practiceSubmissionRoutes = require('./routes/practiceSubmissionRoutes');
+const pistonRoutes = require('./routes/pistonRoutes');
 const assessmentQuestionRoutes = require('./routes/assessmentQuestionRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
@@ -48,7 +49,9 @@ app.use(cors({
     'https://orcode.in',
     'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -90,6 +93,7 @@ app.use('/api/auth', practiceRoutes);
 app.use('/api/admin/practice', adminPracticeRoutes);
 app.use('/api/student/practice', studentPracticeRoutes);
 app.use('/api/practice-submissions', practiceSubmissionRoutes);
+app.use('/api/piston', pistonRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/quizzes', quizRoutes);

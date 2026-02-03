@@ -135,4 +135,13 @@ const quizAttemptSchema = new mongoose.Schema({
 // Ensure unique attempt numbers per student per quiz
 quizAttemptSchema.index({ student: 1, quiz: 1, attemptNumber: 1 }, { unique: true });
 
+// Additional indexes for API optimization
+quizAttemptSchema.index({ student: 1, quiz: 1 }); // Get attempts by student and quiz
+quizAttemptSchema.index({ quiz: 1, attemptStatus: 1 }); // Get attempts by quiz and status
+quizAttemptSchema.index({ tenant: 1, attemptStatus: 1 }); // Get attempts by tenant and status
+quizAttemptSchema.index({ student: 1, attemptStatus: 1 }); // Get attempts by student and status
+quizAttemptSchema.index({ completedAt: 1 }); // Sort by completion time
+quizAttemptSchema.index({ startedAt: 1 }); // Sort by start time
+quizAttemptSchema.index({ score: -1 }); // Sort by score (descending)
+
 module.exports = mongoose.model('QuizAttempt', quizAttemptSchema);

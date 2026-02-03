@@ -211,6 +211,12 @@ practiceSubmissionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 practiceSubmissionSchema.index({ userId: 1, isCompleted: 1 });
 practiceSubmissionSchema.index({ userId: 1, topicId: 1 });
 practiceSubmissionSchema.index({ userId: 1, subTopicId: 1 });
+// Additional indexes for API optimization
+practiceSubmissionSchema.index({ userId: 1, coinsEarned: -1 }); // Sort by coins earned
+practiceSubmissionSchema.index({ topicId: 1, isCompleted: 1 }); // Topic completion stats
+practiceSubmissionSchema.index({ questionId: 1, isCompleted: 1 }); // Question completion stats
+practiceSubmissionSchema.index({ completedAt: 1 }); // Sort by completion time
+practiceSubmissionSchema.index({ lastActivityAt: 1 }); // Sort by last activity
 
 // Update lastActivityAt on save
 practiceSubmissionSchema.pre('save', function(next) {
