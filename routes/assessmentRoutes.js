@@ -29,6 +29,9 @@ router.get('/:id', getAssessmentById);
 // PUT /api/assessments/:id - Update assessment
 router.put('/:id', updateAssessment);
 
+// PATCH /api/assessments/:id - Update assessment questions
+router.patch('/:id', updateAssessment);
+
 // DELETE /api/assessments/:id - Delete assessment
 router.delete('/:id', deleteAssessment);
 

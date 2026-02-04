@@ -19,13 +19,18 @@ const assessmentQuestionController = {
   // Create new assessment question
   createQuestion: async (req, res) => {
     try {
+      console.log('Creating question with data:', JSON.stringify(req.body, null, 2));
+      console.log('User from token:', req.user);
+      
       const question = new AssessmentQuestion({
         ...req.body,
         createdBy: req.user._id || req.user.id
       });
 
-      await question.save();
-      res.status(201).json({ message: 'Question created successfully', question });
+      const savedQuestion = await question.save();
+      console.log('Question saved successfully:', savedQuestion._id);
+      
+      res.status(201).json(savedQuestion);
     } catch (error) {
       console.error('Error creating question:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
