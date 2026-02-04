@@ -50,7 +50,7 @@ app.use(cors({
     'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
 }));
 app.use(express.json());
