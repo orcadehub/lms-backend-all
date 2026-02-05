@@ -888,9 +888,14 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
     const Assessment = require('../models/Assessment');
     const assessments = await Assessment.find({
       tenantId: tenantId
-    }).select('title description duration questions status createdAt startTime');
+    });
 
-    res.json(assessments);
+    const populatedAssessments = await Assessment.populate(assessments, [
+      { path: 'questions' },
+      { path: 'quizQuestions' }
+    ]);
+
+    res.json(populatedAssessments);
   } catch (error) {
     console.error('Error fetching student assessments:', error);
     res.status(500).json({ message: 'Server error' });
@@ -913,7 +918,10 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     const assessment = await Assessment.findOne({
       _id: assessmentId,
       tenantId: tenantId
-    }).populate('questions').select('title description duration questions status createdAt startTime earlyStartBuffer maxTabSwitches allowedLanguages showKeyInsights showAlgorithmSteps');
+    })
+    .populate('questions')
+    .populate('quizQuestions')
+    .select('title description duration questions quizQuestions status createdAt startTime earlyStartBuffer maxTabSwitches allowedLanguages showKeyInsights showAlgorithmSteps');
 
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -922,6 +930,46 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     res.json(assessment);
   } catch (error) {
     console.error('Error fetching assessment details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get assessment questions without answers (for caching)
+router.get('/student/assessment/:assessmentId/questions', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+
+    const Assessment = require('../models/Assessment');
+    const assessment = await Assessment.findOne({
+      _id: assessmentId,
+      tenantId: tenantId
+    })
+    .populate({
+      path: 'questions',
+      select: '-solution' // Exclude only solutions, keep testCases
+    })
+    .populate({
+      path: 'quizQuestions',
+      select: '-correctAnswer' // Exclude correct answers
+    });
+
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    res.json({
+      programmingQuestions: assessment.questions,
+      quizQuestions: assessment.quizQuestions
+    });
+  } catch (error) {
+    console.error('Error fetching assessment questions:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1054,17 +1102,33 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     }
     
     // First attempt
-    const assessment = await Assessment.findById(assessmentId);
+    const assessment = await Assessment.findById(assessmentId)
+      .populate('questions')
+      .populate('quizQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
     }
+
+    const totalProgrammingQuestions = (assessment.questions && assessment.questions.length) || 0;
+    const totalQuizQuestions = (assessment.quizQuestions && assessment.quizQuestions.length) || 0;
+    const totalQuestions = totalProgrammingQuestions + totalQuizQuestions;
+
+    console.log('Assessment counts:', {
+      totalProgrammingQuestions,
+      totalQuizQuestions,
+      totalQuestions,
+      programmingQuestionsArray: assessment.questions,
+      quizQuestionsArray: assessment.quizQuestions
+    });
 
     const attempt = new AssessmentAttempt({
       student: studentId,
       assessment: assessmentId,
       tenantId: tenantId,
       attemptNumber: 1,
-      totalQuestions: assessment.questions.length,
+      totalQuestions: totalQuestions,
+      totalProgrammingQuestions: totalProgrammingQuestions,
+      totalQuizQuestions: totalQuizQuestions,
       startedAt: new Date(),
       remainingTimeSeconds: assessment.duration * 60,
       attemptStatus: 'IN_PROGRESS'
@@ -1180,6 +1244,30 @@ router.post('/student/assessment-attempt/:attemptId/system-info', validateApiKey
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Heartbeat endpoint for assessment attempts
+router.post('/student/assessment-attempt/:attemptId/heartbeat', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { attemptId } = req.params;
+    const { timestamp } = req.body;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      'sessionData.lastHeartbeat': new Date(timestamp || Date.now())
+    });
+
+    res.json({ message: 'Heartbeat recorded' });
+  } catch (error) {
+    console.error('Error recording heartbeat:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 // Get last executed code
 router.get('/student/assessment-attempt/:attemptId/last-code', validateApiKey, async (req, res) => {
   try {
@@ -1215,7 +1303,9 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     const { questionId, language, code, isSuccessful, testResults } = req.body
 
     const AssessmentAttempt = require('../models/AssessmentAttempt')
-    const attempt = await AssessmentAttempt.findById(attemptId)
+    const Assessment = require('../models/Assessment')
+    
+    const attempt = await AssessmentAttempt.findById(attemptId).populate('assessment')
     
     if (!attempt) {
       return res.status(404).json({ message: 'Attempt not found' })
@@ -1242,27 +1332,114 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
       questionPercentages[questionId] = percentage
     }
     
-    // Calculate overall percentage (sum of all question percentages / total questions)
-    const percentageValues = Object.values(questionPercentages)
-    const totalQuestions = attempt.totalQuestions || 0
-    const overallPercentage = totalQuestions > 0 
-      ? Math.round(percentageValues.reduce((sum, p) => sum + p, 0) / totalQuestions)
+    // Get assessment to identify programming questions
+    const assessment = await Assessment.findById(attempt.assessment).populate('questions')
+    const programmingQuestionIds = assessment.questions.map(q => q._id.toString())
+    
+    // Calculate programming percentage (sum of all programming question percentages / total programming questions)
+    const programmingPercentages = Object.entries(questionPercentages)
+      .filter(([qId]) => programmingQuestionIds.includes(qId))
+      .map(([, percentage]) => percentage)
+    
+    const programmingPercentageSum = programmingPercentages.reduce((sum, p) => sum + p, 0)
+    const totalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
+    const programmingPercentage = totalProgrammingQuestions > 0
+      ? Math.round(programmingPercentageSum / totalProgrammingQuestions)
       : 0
+    
+    // Calculate overall percentage (average of programming and quiz percentages)
+    const quizPercentage = attempt.quizPercentage || 0
+    const overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
     
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       lastExecutedCode,
       successfulCodes,
       questionPercentages,
+      programmingPercentage,
       overallPercentage
     })
 
     res.json({ 
       message: 'Code saved successfully',
       questionPercentage: questionPercentages[questionId] || 0,
+      programmingPercentage,
       overallPercentage
     })
   } catch (error) {
     console.error('Error saving code:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// Save quiz answer
+router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' })
+    }
+
+    const { attemptId } = req.params
+    const { questionId, selectedAnswer } = req.body
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt')
+    const Assessment = require('../models/Assessment')
+    
+    const attempt = await AssessmentAttempt.findById(attemptId)
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' })
+    }
+
+    // Get assessment to find the correct answer
+    const assessment = await Assessment.findById(attempt.assessment).populate('quizQuestions')
+    const quizQuestion = assessment.quizQuestions.find(q => q._id.toString() === questionId)
+    
+    if (!quizQuestion) {
+      return res.status(404).json({ message: 'Quiz question not found' })
+    }
+
+    const isCorrect = selectedAnswer === quizQuestion.correctAnswer
+    const questionPercentage = isCorrect ? 100 : 0
+
+    // Update quiz answers
+    const quizAnswers = attempt.quizAnswers || {}
+    quizAnswers[questionId] = { selectedAnswer, isCorrect }
+
+    // Update question percentages
+    const questionPercentages = attempt.questionPercentages || {}
+    questionPercentages[questionId] = questionPercentage
+
+    // Calculate quiz percentage (sum of all quiz question percentages / total quiz questions)
+    const quizQuestionIds = assessment.quizQuestions.map(q => q._id.toString())
+    const quizPercentageSum = Object.entries(questionPercentages)
+      .filter(([qId]) => quizQuestionIds.includes(qId))
+      .reduce((sum, [, percentage]) => sum + percentage, 0)
+    
+    const totalQuizQuestions = attempt.totalQuizQuestions || 0
+    const quizPercentage = totalQuizQuestions > 0
+      ? Math.round(quizPercentageSum / totalQuizQuestions)
+      : 0
+
+    // Calculate overall percentage
+    const programmingPercentage = attempt.programmingPercentage || 0
+    const overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
+
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      quizAnswers,
+      questionPercentages,
+      quizPercentage,
+      overallPercentage
+    })
+
+    res.json({ 
+      message: 'Quiz answer saved successfully',
+      isCorrect,
+      questionPercentage,
+      quizPercentage,
+      overallPercentage
+    })
+  } catch (error) {
+    console.error('Error saving quiz answer:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

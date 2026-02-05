@@ -33,6 +33,14 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  totalProgrammingQuestions: {
+    type: Number,
+    default: 0
+  },
+  totalQuizQuestions: {
+    type: Number,
+    default: 0
+  },
   timeTaken: {
     type: Number,
     default: 0
@@ -116,9 +124,21 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {} // { questionId: percentage }
   },
-  overallPercentage: {
+  quizAnswers: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {} // { questionId: { selectedAnswer: index, isCorrect: boolean } }
+  },
+  programmingPercentage: {
     type: Number,
     default: 0
+  },
+  quizPercentage: {
+    type: Number,
+    default: 0
+  },
+  overallPercentage: {
+    type: Number,
+    default: 0 // Average of programmingPercentage and quizPercentage
   },
   sessionData: {
     startIP: {
@@ -137,12 +157,29 @@ const assessmentAttemptSchema = new mongoose.Schema({
       onlineStatus: Boolean,
       timestamp: Date
     }],
+    lastHeartbeat: {
+      type: Date
+    },
+    connectionEvents: [{
+      type: {
+        type: String,
+        enum: ['CONNECTION_LOST', 'BROWSER_CLOSE', 'RECONNECTED']
+      },
+      timestamp: Date
+    }],
     sessionStartTime: {
       type: Date
     },
     sessionEndTime: {
       type: Date
     }
+  },
+  retakeCount: {
+    type: Number,
+    default: 0
+  },
+  retakenAt: {
+    type: Date
   }
 }, {
   timestamps: true

@@ -47,6 +47,15 @@ router.get('/:id/attempts', getAssessmentAttempts);
 // GET /api/assessments/:id/results - Export assessment results to Excel
 router.get('/:id/results', exportAssessmentResults);
 
+// PATCH /api/assessments/:id/expire-timer - Handle timer expiration
+router.patch('/:id/expire-timer', require('../controllers/assessmentController').expireAssessmentTimer);
+
+// POST /api/assessments/:id/quiz-questions - Add quiz question to assessment
+router.post('/:id/quiz-questions', require('../controllers/assessmentController').addQuizQuestion);
+
+// DELETE /api/assessments/:id/quiz-questions/:questionId - Remove quiz question from assessment
+router.delete('/:id/quiz-questions/:questionId', require('../controllers/assessmentController').removeQuizQuestion);
+
 // PATCH /api/assessment-attempts/:attemptId/:action - Handle student actions
 router.patch('/attempts/:attemptId/:action', handleStudentAction);
 

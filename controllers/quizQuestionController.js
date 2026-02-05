@@ -6,8 +6,7 @@ const quizQuestionController = {
   // Get all quiz questions for tenant
   getAllQuestions: async (req, res) => {
     try {
-      const { tenantId } = req.query;
-      const questions = await QuizQuestion.find({ tenant: tenantId })
+      const questions = await QuizQuestion.find({})
         .populate('createdBy', 'name')
         .sort({ createdAt: -1 });
       res.json(questions);

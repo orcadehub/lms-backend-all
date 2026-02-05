@@ -8,7 +8,7 @@ const assessmentQuestionSchema = new mongoose.Schema({
   testCases: [{
     input: { type: mongoose.Schema.Types.Mixed, required: true },
     output: { type: mongoose.Schema.Types.Mixed, required: true },
-    explanation: { type: String, required: true },
+    explanation: { type: String },
     isPublic: { type: Boolean, required: true }
   }],
   tags: { type: [String], required: true },

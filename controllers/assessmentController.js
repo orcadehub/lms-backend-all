@@ -74,6 +74,7 @@ const getAssessmentById = async (req, res) => {
     const { id } = req.params;
     const assessment = await Assessment.findById(id)
       .populate('questions')
+      .populate('quizQuestions')
       .populate('createdBy', 'name')
       .select('+startTime +showKeyInsights +showAlgorithmSteps');
     
@@ -425,6 +426,95 @@ const exportAssessmentResults = async (req, res) => {
   }
 };
 
+// Expire assessment timer - mark all IN_PROGRESS attempts as COMPLETED
+const expireAssessmentTimer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    // Find all IN_PROGRESS attempts for this assessment
+    const inProgressAttempts = await AssessmentAttempt.find({ 
+      assessment: id, 
+      attemptStatus: 'IN_PROGRESS' 
+    });
+    
+    if (inProgressAttempts.length === 0) {
+      return res.json({ message: 'No in-progress attempts found', updatedCount: 0 });
+    }
+    
+    // Update each attempt individually to ensure proper time calculation
+    let updatedCount = 0;
+    for (const attempt of inProgressAttempts) {
+      const timeUsed = Math.floor((new Date() - new Date(attempt.startedAt)) / 1000);
+      await AssessmentAttempt.findByIdAndUpdate(attempt._id, {
+        attemptStatus: 'COMPLETED',
+        submissionReason: 'TIME_UP',
+        completedAt: new Date(),
+        timeUsedSeconds: timeUsed
+      });
+      updatedCount++;
+    }
+    
+    res.json({ 
+      message: 'Assessment timer expired successfully', 
+      updatedCount: updatedCount,
+      attemptIds: inProgressAttempts.map(a => a._id)
+    });
+  } catch (error) {
+    console.error('Error expiring assessment timer:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Add quiz question to assessment
+const addQuizQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questionId } = req.body;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (!assessment.quizQuestions) {
+      assessment.quizQuestions = [];
+    }
+    
+    if (!assessment.quizQuestions.includes(questionId)) {
+      assessment.quizQuestions.push(questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('quizQuestions');
+    res.json({ message: 'Quiz question added successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove quiz question from assessment
+const removeQuizQuestion = async (req, res) => {
+  try {
+    const { id, questionId } = req.params;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (assessment.quizQuestions) {
+      assessment.quizQuestions = assessment.quizQuestions.filter(q => q.toString() !== questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('quizQuestions');
+    res.json({ message: 'Quiz question removed successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -435,5 +525,8 @@ module.exports = {
   updateAssessmentTime,
   getAssessmentAttempts,
   handleStudentAction,
-  exportAssessmentResults
+  exportAssessmentResults,
+  expireAssessmentTimer,
+  addQuizQuestion,
+  removeQuizQuestion
 };
