@@ -47,7 +47,9 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:3001', 
     'https://orcode.in',
-    'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
+    'http://orcode.in.s3-website.ap-south-2.amazonaws.com',
+    'http://seedingminds.co.in',
+    'https://seedingminds.co.in'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
