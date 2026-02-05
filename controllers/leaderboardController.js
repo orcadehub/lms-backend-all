@@ -1,10 +1,19 @@
 const Student = require('../models/Student');
 const AssessmentAttempt = require('../models/AssessmentAttempt');
+const mongoose = require('mongoose');
 
 const leaderboardController = {
   // Get assessment leaderboard based on average percentage
   getAssessmentLeaderboard: async (req, res) => {
     try {
+      const tenantIdString = req.query.tenantId;
+      if (!tenantIdString) {
+        return res.status(400).json({ message: 'Tenant ID is required' });
+      }
+      const studentTenantId = new mongoose.Types.ObjectId(tenantIdString);
+      
+      console.log('Fetching assessment leaderboard for tenant:', studentTenantId);
+      
       const assessmentLeaderboard = await AssessmentAttempt.aggregate([
         {
           $match: { attemptStatus: 'COMPLETED' }
@@ -39,6 +48,11 @@ const leaderboardController = {
           $unwind: '$student'
         },
         {
+          $match: {
+            $expr: { $eq: ['$student.tenant', studentTenantId] }
+          }
+        },
+        {
           $project: {
             _id: 1,
             name: '$student.name',
@@ -54,6 +68,8 @@ const leaderboardController = {
           $limit: 30
         }
       ]);
+
+      console.log('Assessment leaderboard results:', assessmentLeaderboard.length);
 
       // Add rank
       const rankedLeaderboard = assessmentLeaderboard.map((student, index) => ({
@@ -71,6 +87,14 @@ const leaderboardController = {
   // Get overall leaderboard based on assessment performance only
   getOverallLeaderboard: async (req, res) => {
     try {
+      const tenantIdString = req.query.tenantId;
+      if (!tenantIdString) {
+        return res.status(400).json({ message: 'Tenant ID is required' });
+      }
+      const studentTenantId = new mongoose.Types.ObjectId(tenantIdString);
+      
+      console.log('Fetching overall leaderboard for tenant:', studentTenantId);
+      
       // Use optimized aggregation pipeline for better performance
       const overallLeaderboard = await AssessmentAttempt.aggregate([
         {
@@ -107,6 +131,11 @@ const leaderboardController = {
           $unwind: '$student'
         },
         {
+          $match: {
+            $expr: { $eq: ['$student.tenant', studentTenantId] }
+          }
+        },
+        {
           $project: {
             _id: 1,
             name: '$student.name',
@@ -123,6 +152,8 @@ const leaderboardController = {
           $limit: 30
         }
       ]);
+
+      console.log('Overall leaderboard results:', overallLeaderboard.length);
 
       // Add rank
       const rankedLeaderboard = overallLeaderboard.map((student, index) => ({

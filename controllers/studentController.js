@@ -38,8 +38,8 @@ const studentController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { name, email, password } = req.body;
-      const tenantId = req.user.assignedTenants[0]; // Use instructor's first assigned tenant
+      const { name, email, password, tenantId } = req.body;
+      const selectedTenantId = tenantId || req.user.assignedTenants[0]; // Use provided tenantId or fallback to first assigned tenant
 
       // Check if student already exists
       const existingStudent = await Student.findOne({ email });
@@ -51,7 +51,7 @@ const studentController = {
         name,
         email,
         password,
-        tenant: tenantId
+        tenant: selectedTenantId
       });
 
       await student.save();

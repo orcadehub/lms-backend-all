@@ -14,14 +14,14 @@ const createAssessment = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, type, duration, difficulty, questions, batches } = req.body;
-    const tenantId = req.user.tenantId || req.user.assignedTenants?.[0];
+    const { title, description, type, duration, difficulty, questions, batches, tenantId } = req.body;
+    const finalTenantId = tenantId || req.user.tenantId || req.user.assignedTenants?.[0];
 
     // Handle 'all' batches case
     let batchIds = [];
     if (batches === 'all') {
       const Batch = require('../models/Batch');
-      const allBatches = await Batch.find({ tenant: tenantId });
+      const allBatches = await Batch.find({ tenant: finalTenantId });
       batchIds = allBatches.map(batch => batch._id);
     } else {
       batchIds = batches;
@@ -36,7 +36,7 @@ const createAssessment = async (req, res) => {
       questions,
       batches: batchIds,
       createdBy: req.user.id,
-      tenantId,
+      tenantId: finalTenantId,
       status: 'draft',
       maxTabSwitches: req.body.maxTabSwitches || 3
     });
@@ -55,7 +55,8 @@ const createAssessment = async (req, res) => {
 const getAssessments = async (req, res) => {
   try {
     const { tenantId } = req.query;
-    const assessments = await Assessment.find({})
+    const filter = tenantId ? { tenantId } : {};
+    const assessments = await Assessment.find(filter)
       .populate('questions', 'title difficulty')
       .populate('createdBy', 'name')
       .select('+startTime')
@@ -285,6 +286,13 @@ const handleStudentAction = async (req, res) => {
         attempt.attemptStatus = 'RETAKE_ALLOWED';
         attempt.lastExecutedCode = {}; // Clear last executed code
         attempt.successfulCodes = {}; // Clear successful codes
+        attempt.questionPercentages = {}; // Clear question percentages
+        attempt.programmingPercentage = 0; // Reset programming percentage
+        attempt.quizPercentage = 0; // Reset quiz percentage
+        attempt.overallPercentage = 0; // Reset overall percentage
+        attempt.tabSwitchCount = 0; // Reset tab switches
+        attempt.fullscreenExitCount = 0; // Reset fullscreen exits
+        attempt.quizAnswers = {}; // Clear quiz answers
         break;
       case 'terminate':
         attempt.attemptStatus = 'TERMINATED';
@@ -325,10 +333,16 @@ const exportAssessmentResults = async (req, res) => {
     const baseColumns = [
       { header: 'Name', key: 'name', width: 20 },
       { header: 'Email', key: 'email', width: 25 },
+      { header: 'Quiz Percentage', key: 'quizPercentage', width: 15 },
+      { header: 'Programming Percentage', key: 'programmingPercentage', width: 20 },
+      { header: 'Overall Percentage', key: 'overallPercentage', width: 18 },
+      { header: 'Time Used', key: 'timeUsed', width: 12 },
+      { header: 'Tab Switches', key: 'tabSwitches', width: 12 },
+      { header: 'Fullscreen Exits', key: 'fullscreenExits', width: 15 },
+      { header: 'Submission Reason', key: 'submissionReason', width: 18 },
       { header: 'Total Questions', key: 'totalQuestions', width: 15 },
       { header: 'Attempted', key: 'attempted', width: 12 },
-      { header: 'Unattempted', key: 'unattempted', width: 12 },
-      { header: 'Overall Percentage', key: 'overallPercentage', width: 15 }
+      { header: 'Unattempted', key: 'unattempted', width: 12 }
     ];
     
     // Add columns for each question
@@ -339,15 +353,11 @@ const exportAssessmentResults = async (req, res) => {
     }));
     
     const endColumns = [
-      { header: 'Tab Switches', key: 'tabSwitches', width: 12 },
-      { header: 'Fullscreen Exits', key: 'fullscreenExits', width: 15 },
       { header: 'Start IP', key: 'startIP', width: 15 },
       { header: 'End IP', key: 'endIP', width: 15 },
       { header: 'Status', key: 'status', width: 15 },
       { header: 'Started At', key: 'startedAt', width: 20 },
       { header: 'Completed At', key: 'completedAt', width: 20 },
-      { header: 'Time Used', key: 'timeUsed', width: 12 },
-      { header: 'Remaining Time', key: 'remainingTime', width: 15 },
       { header: 'Resume Count', key: 'resumeCount', width: 12 },
       { header: 'Retake Count', key: 'retakeCount', width: 12 },
       { header: 'Session Data', key: 'sessionData', width: 50 }
@@ -363,11 +373,40 @@ const exportAssessmentResults = async (req, res) => {
       fgColor: { argb: 'FFE0E0E0' }
     };
     
-    // Sort attempts by overall percentage in descending order
+    // Sort attempts by overall percentage (descending), then by tab switches (ascending), then by fullscreen exits (ascending), then by time used (ascending), then alphabetically by name
     attempts.sort((a, b) => {
       const percentageA = a.overallPercentage || 0;
       const percentageB = b.overallPercentage || 0;
-      return percentageB - percentageA;
+      
+      if (percentageB !== percentageA) {
+        return percentageB - percentageA; // Higher percentage first
+      }
+      
+      const tabSwitchesA = a.tabSwitchCount || 0;
+      const tabSwitchesB = b.tabSwitchCount || 0;
+      
+      if (tabSwitchesA !== tabSwitchesB) {
+        return tabSwitchesA - tabSwitchesB; // Lower tab switches first
+      }
+      
+      const fullscreenExitsA = a.fullscreenExitCount || 0;
+      const fullscreenExitsB = b.fullscreenExitCount || 0;
+      
+      if (fullscreenExitsA !== fullscreenExitsB) {
+        return fullscreenExitsA - fullscreenExitsB; // Lower fullscreen exits first
+      }
+      
+      const timeUsedA = a.timeUsedSeconds || 0;
+      const timeUsedB = b.timeUsedSeconds || 0;
+      
+      if (timeUsedA !== timeUsedB) {
+        return timeUsedA - timeUsedB; // Lower time used first
+      }
+      
+      // Alphabetical order by name
+      const nameA = a.student?.name || 'Unknown';
+      const nameB = b.student?.name || 'Unknown';
+      return nameA.localeCompare(nameB);
     });
     
     // Add data rows
@@ -380,19 +419,21 @@ const exportAssessmentResults = async (req, res) => {
       const rowData = {
         name: attempt.student?.name || 'Unknown',
         email: attempt.student?.email || 'N/A',
+        quizPercentage: (attempt.quizPercentage || 0).toFixed(2) + '%',
+        programmingPercentage: (attempt.programmingPercentage || 0).toFixed(2) + '%',
+        overallPercentage: overallPercentage.toFixed(2) + '%',
+        timeUsed: attempt.timeUsedSeconds ? Math.floor(attempt.timeUsedSeconds / 60) + 'm ' + (attempt.timeUsedSeconds % 60) + 's' : '0m 0s',
+        tabSwitches: attempt.tabSwitchCount || 0,
+        fullscreenExits: attempt.fullscreenExitCount || 0,
+        submissionReason: attempt.submissionReason || 'N/A',
         totalQuestions,
         attempted,
         unattempted,
-        overallPercentage: overallPercentage.toFixed(2) + '%',
-        tabSwitches: attempt.tabSwitchCount || 0,
-        fullscreenExits: attempt.fullscreenExitCount || 0,
         startIP: attempt.sessionData?.startIP || 'N/A',
         endIP: attempt.sessionData?.endIP || attempt.sessionData?.startIP || 'N/A',
         status: attempt.attemptStatus || 'N/A',
         startedAt: attempt.startedAt ? new Date(attempt.startedAt).toLocaleString() : 'N/A',
         completedAt: attempt.completedAt ? new Date(attempt.completedAt).toLocaleString() : 'N/A',
-        timeUsed: attempt.timeUsedSeconds ? Math.floor(attempt.timeUsedSeconds / 60) + 'm ' + (attempt.timeUsedSeconds % 60) + 's' : '0m 0s',
-        remainingTime: attempt.remainingTimeSeconds ? Math.floor(attempt.remainingTimeSeconds / 60) + 'm ' + (attempt.remainingTimeSeconds % 60) + 's' : '0m 0s',
         resumeCount: attempt.resumeCount || 0,
         retakeCount: attempt.retakeCount || 0,
         sessionData: [
@@ -432,19 +473,19 @@ const expireAssessmentTimer = async (req, res) => {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
     
-    // Find all IN_PROGRESS attempts for this assessment
-    const inProgressAttempts = await AssessmentAttempt.find({ 
+    // Find all attempts that should be completed for this assessment
+    const attemptsToComplete = await AssessmentAttempt.find({ 
       assessment: id, 
-      attemptStatus: 'IN_PROGRESS' 
+      attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED', 'RETAKE_ALLOWED'] }
     });
     
-    if (inProgressAttempts.length === 0) {
-      return res.json({ message: 'No in-progress attempts found', updatedCount: 0 });
+    if (attemptsToComplete.length === 0) {
+      return res.json({ message: 'No attempts found to complete', updatedCount: 0 });
     }
     
     // Update each attempt individually to ensure proper time calculation
     let updatedCount = 0;
-    for (const attempt of inProgressAttempts) {
+    for (const attempt of attemptsToComplete) {
       const timeUsed = Math.floor((new Date() - new Date(attempt.startedAt)) / 1000);
       await AssessmentAttempt.findByIdAndUpdate(attempt._id, {
         attemptStatus: 'COMPLETED',
@@ -458,7 +499,7 @@ const expireAssessmentTimer = async (req, res) => {
     res.json({ 
       message: 'Assessment timer expired successfully', 
       updatedCount: updatedCount,
-      attemptIds: inProgressAttempts.map(a => a._id)
+      attemptIds: attemptsToComplete.map(a => a._id)
     });
   } catch (error) {
     console.error('Error expiring assessment timer:', error);

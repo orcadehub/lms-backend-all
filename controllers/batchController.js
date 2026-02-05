@@ -22,13 +22,13 @@ const batchController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { name, description } = req.body;
-      const tenantId = req.user.assignedTenants[0];
+      const { name, description, tenantId } = req.body;
+      const finalTenantId = tenantId || req.user.assignedTenants[0];
 
       const batch = new Batch({
         name,
         description,
-        tenant: tenantId
+        tenant: finalTenantId
       });
 
       await batch.save();

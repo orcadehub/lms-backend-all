@@ -1349,7 +1349,20 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     
     // Calculate overall percentage (average of programming and quiz percentages)
     const quizPercentage = attempt.quizPercentage || 0
-    const overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
+    const attemptTotalQuizQuestions = attempt.totalQuizQuestions || 0
+    const attemptTotalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
+    
+    let overallPercentage = 0
+    if (attemptTotalQuizQuestions > 0 && attemptTotalProgrammingQuestions > 0) {
+      // Both quiz and programming questions exist
+      overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
+    } else if (attemptTotalProgrammingQuestions > 0) {
+      // Only programming questions
+      overallPercentage = programmingPercentage
+    } else if (attemptTotalQuizQuestions > 0) {
+      // Only quiz questions
+      overallPercentage = quizPercentage
+    }
     
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       lastExecutedCode,
@@ -1422,7 +1435,20 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
 
     // Calculate overall percentage
     const programmingPercentage = attempt.programmingPercentage || 0
-    const overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
+    const attemptTotalQuizQuestions = attempt.totalQuizQuestions || 0
+    const attemptTotalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
+    
+    let overallPercentage = 0
+    if (attemptTotalQuizQuestions > 0 && attemptTotalProgrammingQuestions > 0) {
+      // Both quiz and programming questions exist
+      overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
+    } else if (attemptTotalProgrammingQuestions > 0) {
+      // Only programming questions
+      overallPercentage = programmingPercentage
+    } else if (attemptTotalQuizQuestions > 0) {
+      // Only quiz questions
+      overallPercentage = quizPercentage
+    }
 
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       quizAnswers,
