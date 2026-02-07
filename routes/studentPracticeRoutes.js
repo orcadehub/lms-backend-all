@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const Topic = require('../models/Topic');
 const SubTopic = require('../models/SubTopic');
 const Question = require('../models/Question');
+const GamifiedQuestion = require('../models/GamifiedQuestion');
 const PracticeSubmission = require('../models/PracticeSubmission');
 const { auth } = require('../middleware/auth');
 
@@ -28,19 +29,29 @@ router.get('/topics', auth, async (req, res) => {
         subTopicId: { $in: subTopicIds.map(st => st._id) }, 
         isActive: true 
       });
+      const gamifiedQuestionCount = await GamifiedQuestion.countDocuments({
+        subTopicId: { $in: subTopicIds.map(st => st._id) },
+        isActive: true
+      });
+      const totalQuestionCount = questionCount + gamifiedQuestionCount;
+      
       const questionIds = await Question.find({ 
         subTopicId: { $in: subTopicIds.map(st => st._id) }, 
         isActive: true 
       }).select('_id');
+      const gamifiedQuestionIds = await GamifiedQuestion.find({
+        subTopicId: { $in: subTopicIds.map(st => st._id) },
+        isActive: true
+      }).select('_id');
       
-      const questions = questionIds.map(q => q._id.toString());
+      const questions = [...questionIds.map(q => q._id.toString()), ...gamifiedQuestionIds.map(q => q._id.toString())];
       const completedCount = questions.filter(qId => completedQuestionIds.includes(qId)).length;
-      const progress = questionCount > 0 ? Math.round((completedCount / questionCount) * 100) : 0;
+      const progress = totalQuestionCount > 0 ? Math.round((completedCount / totalQuestionCount) * 100) : 0;
       
       return {
         ...topic.toObject(),
         subTopicCount,
-        questionCount,
+        questionCount: totalQuestionCount,
         questions,
         completedCount,
         progress
@@ -75,18 +86,28 @@ router.get('/topics/:topicId/subtopics', auth, async (req, res) => {
         subTopicId: subtopic._id, 
         isActive: true 
       });
+      const gamifiedQuestionCount = await GamifiedQuestion.countDocuments({
+        subTopicId: subtopic._id,
+        isActive: true
+      });
+      const totalQuestionCount = questionCount + gamifiedQuestionCount;
+      
       const questionIds = await Question.find({ 
         subTopicId: subtopic._id, 
         isActive: true 
       }).select('_id');
+      const gamifiedQuestionIds = await GamifiedQuestion.find({
+        subTopicId: subtopic._id,
+        isActive: true
+      }).select('_id');
       
-      const questions = questionIds.map(q => q._id.toString());
+      const questions = [...questionIds.map(q => q._id.toString()), ...gamifiedQuestionIds.map(q => q._id.toString())];
       const completedCount = questions.filter(qId => completedQuestionIds.includes(qId)).length;
-      const progress = questionCount > 0 ? Math.round((completedCount / questionCount) * 100) : 0;
+      const progress = totalQuestionCount > 0 ? Math.round((completedCount / totalQuestionCount) * 100) : 0;
       
       return {
         ...subtopic.toObject(),
-        questionCount,
+        questionCount: totalQuestionCount,
         questions,
         completedCount,
         progress
@@ -99,23 +120,34 @@ router.get('/topics/:topicId/subtopics', auth, async (req, res) => {
   }
 });
 
-// Get questions by subtopic for student
+// Get questions by subtopic for student (includes gamified questions)
 router.get('/subtopics/:subtopicId/questions', async (req, res) => {
   try {
     const questions = await Question.find({ 
       subTopicId: req.params.subtopicId, 
       isActive: true 
     }).sort({ order: 1, createdAt: 1 });
-    res.json(questions);
+    
+    const gamifiedQuestions = await GamifiedQuestion.find({
+      subTopicId: req.params.subtopicId,
+      isActive: true
+    }).sort({ order: 1, createdAt: 1 });
+    
+    res.json([...questions, ...gamifiedQuestions]);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get single question for student
+// Get single question for student (supports both regular and gamified)
 router.get('/questions/:id', async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id);
+    let question = await GamifiedQuestion.findById(req.params.id);
+    
+    if (!question) {
+      question = await Question.findById(req.params.id);
+    }
+    
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }

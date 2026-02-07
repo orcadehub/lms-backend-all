@@ -3,6 +3,7 @@ const router = express.Router();
 const Topic = require('../models/Topic');
 const SubTopic = require('../models/SubTopic');
 const Question = require('../models/Question');
+const GamifiedQuestion = require('../models/GamifiedQuestion');
 
 // Get all topics
 router.get('/topics', async (req, res) => {
@@ -74,10 +75,12 @@ router.put('/topics/:id', async (req, res) => {
 // Get subtopics by topic
 router.get('/topics/:topicId/subtopics', async (req, res) => {
   try {
+    console.log('Fetching subtopics for topicId:', req.params.topicId);
     const subtopics = await SubTopic.find({ 
       topicId: req.params.topicId, 
       isActive: true 
     }).sort({ order: 1, createdAt: 1 });
+    console.log('Found subtopics:', subtopics.length);
     
     // Add question counts for each subtopic
     const subtopicsWithCounts = await Promise.all(subtopics.map(async (subtopic) => {
@@ -94,6 +97,19 @@ router.get('/topics/:topicId/subtopics', async (req, res) => {
     }));
     
     res.json(subtopicsWithCounts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get single subtopic
+router.get('/subtopics/:id', async (req, res) => {
+  try {
+    const subtopic = await SubTopic.findById(req.params.id);
+    if (!subtopic) {
+      return res.status(404).json({ message: 'Subtopic not found' });
+    }
+    res.json(subtopic);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -123,23 +139,36 @@ router.put('/subtopics/:id', async (req, res) => {
   }
 });
 
-// Get questions by subtopic
+// Get questions by subtopic (including gamified questions)
 router.get('/subtopics/:subtopicId/questions', async (req, res) => {
   try {
     const questions = await Question.find({ 
       subTopicId: req.params.subtopicId, 
       isActive: true 
     }).sort({ order: 1, createdAt: 1 });
-    res.json(questions);
+    
+    const gamifiedQuestions = await GamifiedQuestion.find({
+      subTopicId: req.params.subtopicId,
+      isActive: true
+    }).sort({ order: 1, createdAt: 1 });
+    
+    res.json([...questions, ...gamifiedQuestions]);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get single question
+// Get single question (supports both regular and gamified)
 router.get('/questions/:id', async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id);
+    // Try GamifiedQuestion first
+    let question = await GamifiedQuestion.findById(req.params.id);
+    
+    // If not found, try regular Question
+    if (!question) {
+      question = await Question.findById(req.params.id);
+    }
+    
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }
@@ -149,21 +178,35 @@ router.get('/questions/:id', async (req, res) => {
   }
 });
 
-// Create question
+// Create question (supports both regular and gamified)
 router.post('/questions', async (req, res) => {
   try {
-    const question = new Question(req.body);
-    await question.save();
-    res.status(201).json(question);
+    // Check if it's a gamified question based on gameType field
+    if (req.body.gameType) {
+      const question = new GamifiedQuestion(req.body);
+      await question.save();
+      res.status(201).json(question);
+    } else {
+      const question = new Question(req.body);
+      await question.save();
+      res.status(201).json(question);
+    }
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-// Update question
+// Update question (supports both regular and gamified)
 router.put('/questions/:id', async (req, res) => {
   try {
-    const question = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Try to find in GamifiedQuestion first
+    let question = await GamifiedQuestion.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    
+    // If not found, try regular Question
+    if (!question) {
+      question = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    }
+    
     if (!question) {
       return res.status(404).json({ message: 'Question not found' });
     }

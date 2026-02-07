@@ -169,7 +169,14 @@ const batchController = {
   uploadStudentsToBatch: async (req, res) => {
     try {
       const { id } = req.params;
-      const tenantId = req.user.assignedTenants[0];
+      
+      // Get batch first to find its tenant
+      const batch = await Batch.findById(id);
+      if (!batch) {
+        return res.status(404).json({ message: 'Batch not found' });
+      }
+      
+      const tenantId = batch.tenant;
       
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -202,18 +209,14 @@ const batchController = {
       }
 
       // Add valid students to batch
-      const batch = await Batch.findByIdAndUpdate(
+      const updatedBatch = await Batch.findByIdAndUpdate(
         id,
         { $addToSet: { students: { $each: validStudentIds } } },
         { new: true }
       ).populate('students', 'name email');
 
-      if (!batch) {
-        return res.status(404).json({ message: 'Batch not found' });
-      }
-
       res.json({
-        batch,
+        batch: updatedBatch,
         addedCount: validStudentIds.length,
         nonExistentStudents,
         message: `${validStudentIds.length} students added to batch`

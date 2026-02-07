@@ -88,8 +88,8 @@ const studentController = {
   // Bulk upload students
   bulkUploadStudents: async (req, res) => {
     try {
-      const { defaultPassword } = req.body;
-      const tenantId = req.user.assignedTenants[0];
+      const { defaultPassword, tenantId } = req.body;
+      const selectedTenantId = tenantId || req.user.assignedTenants[0];
       
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -126,7 +126,7 @@ const studentController = {
             name,
             email,
             password: defaultPassword,
-            tenant: tenantId
+            tenant: selectedTenantId
           });
 
           await student.save();

@@ -34,10 +34,11 @@ const assessmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QuizQuestion'
   }],
-  batches: {
-    type: mongoose.Schema.Types.Mixed, // Can be 'all' or array of batch IDs
+  batches: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch',
     required: true
-  },
+  }],
   students: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student'

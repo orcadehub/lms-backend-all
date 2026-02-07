@@ -24,7 +24,7 @@ const createAssessment = async (req, res) => {
       const allBatches = await Batch.find({ tenant: finalTenantId });
       batchIds = allBatches.map(batch => batch._id);
     } else {
-      batchIds = batches;
+      batchIds = Array.isArray(batches) ? batches : [batches];
     }
     
     const assessment = new Assessment({

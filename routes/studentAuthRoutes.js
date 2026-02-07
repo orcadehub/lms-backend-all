@@ -883,11 +883,29 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId;
     const tenantId = req.tenantId;
 
     const Assessment = require('../models/Assessment');
+    const Batch = require('../models/Batch');
+    
+    // Find batches where this student is enrolled
+    const studentBatches = await Batch.find({
+      tenant: tenantId,
+      students: studentId
+    }).select('_id');
+    
+    const batchIds = studentBatches.map(b => b._id);
+    
+    // Find assessments where:
+    // 1. Assessment has no batches (empty array) - available to all students
+    // 2. Assessment has batches and student is in one of those batches
     const assessments = await Assessment.find({
-      tenantId: tenantId
+      tenantId: tenantId,
+      $or: [
+        { batches: { $size: 0 } },
+        { batches: { $in: batchIds } }
+      ]
     });
 
     const populatedAssessments = await Assessment.populate(assessments, [
