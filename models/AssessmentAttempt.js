@@ -140,6 +140,14 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: Number,
     default: 0 // Average of programmingPercentage and quizPercentage
   },
+  accuracy: {
+    type: Number,
+    default: 0 // Average accuracy across all problems based on test cases passed
+  },
+  problemAccuracies: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {} // { questionId: { passed: number, total: number, accuracy: number } }
+  },
   sessionData: {
     startIP: {
       type: String

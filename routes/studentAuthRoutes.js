@@ -1343,11 +1343,20 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     
     // Calculate percentage for this question if testResults provided
     const questionPercentages = attempt.questionPercentages || {}
+    const problemAccuracies = attempt.problemAccuracies || {}
+    
     if (testResults && testResults.length > 0) {
       const passedTests = testResults.filter(result => result.passed === true).length
       const totalTests = testResults.length
       const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
       questionPercentages[questionId] = percentage
+      
+      // Store accuracy data for this problem
+      problemAccuracies[questionId] = {
+        passed: passedTests,
+        total: totalTests,
+        accuracy: percentage
+      }
     }
     
     // Get assessment to identify programming questions
@@ -1382,10 +1391,20 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
       overallPercentage = quizPercentage
     }
     
+    // Calculate overall accuracy (average of all problem accuracies)
+    const accuracyValues = Object.values(problemAccuracies).map(p => p.accuracy)
+    const accuracy = accuracyValues.length > 0
+      ? Math.round(accuracyValues.reduce((sum, acc) => sum + acc, 0) / accuracyValues.length)
+      : 0
+    
+    console.log('💯 Saving accuracy:', { accuracy, problemAccuracies })
+    
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       lastExecutedCode,
       successfulCodes,
       questionPercentages,
+      problemAccuracies,
+      accuracy,
       programmingPercentage,
       overallPercentage
     })
@@ -1393,6 +1412,7 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     res.json({ 
       message: 'Code saved successfully',
       questionPercentage: questionPercentages[questionId] || 0,
+      accuracy,
       programmingPercentage,
       overallPercentage
     })
