@@ -59,6 +59,7 @@ const getAssessments = async (req, res) => {
     const assessments = await Assessment.find(filter)
       .populate('questions', 'title difficulty')
       .populate('createdBy', 'name')
+      .populate('batches', 'name')
       .select('+startTime')
       .sort({ createdAt: -1 });
     

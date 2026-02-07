@@ -44,6 +44,10 @@ const tenantSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  faviconUrl: {
+    type: String,
+    trim: true
+  },
   themeColor: {
     type: String,
     default: '#1976d2'

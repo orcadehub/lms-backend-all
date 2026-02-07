@@ -12,8 +12,8 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
-// Public endpoint - Get tenant config (requires API key)
-router.get('/config', validateApiKey, tenantController.getTenantConfig);
+// Public endpoint - Get tenant config by domain (no auth required)
+router.get('/config', tenantController.getTenantConfig);
 
 // Admin endpoints
 router.get('/', auth, authorize('admin'), tenantController.getAllTenants);

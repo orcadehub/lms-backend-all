@@ -81,9 +81,31 @@ const tenantController = {
   // Get tenant configuration (for frontend)
   getTenantConfig: async (req, res) => {
     try {
-      const tenant = req.tenant; // From API key middleware
+      const { domain } = req.query;
       
-      res.json(tenant);
+      if (!domain) {
+        return res.status(400).json({ message: 'Domain parameter is required' });
+      }
+      
+      const tenant = await Tenant.findOne({ domain, isActive: true });
+      
+      if (!tenant) {
+        return res.status(404).json({ message: 'Tenant not found for domain' });
+      }
+      
+      // Return only public config data
+      res.json({
+        tenantId: tenant._id,
+        tenantName: tenant.name,
+        companyName: tenant.companyName,
+        apiKey: tenant.apiKey,
+        apiEndpoint: tenant.apiEndpoint,
+        domain: tenant.domain,
+        logoUrl: tenant.logoUrl,
+        faviconUrl: tenant.faviconUrl || tenant.logoUrl,
+        themeColor: tenant.themeColor || '#1976d2',
+        allowedDomains: tenant.allowedDomains
+      });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
