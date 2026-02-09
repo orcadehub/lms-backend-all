@@ -557,6 +557,61 @@ const removeQuizQuestion = async (req, res) => {
   }
 };
 
+// Mark all in-progress students as completed
+const markAllInProgressCompleted = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const result = await AssessmentAttempt.updateMany(
+      { 
+        assessment: id, 
+        attemptStatus: 'IN_PROGRESS'
+      },
+      {
+        attemptStatus: 'COMPLETED',
+        submissionReason: 'TIME_UP',
+        completedAt: new Date()
+      }
+    );
+    
+    res.json({ 
+      message: 'All in-progress students marked as completed', 
+      count: result.modifiedCount 
+    });
+  } catch (error) {
+    console.error('Error marking all in-progress as completed:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Mark all in-progress students as resume allowed
+const markAllInProgressResume = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const result = await AssessmentAttempt.updateMany(
+      { 
+        assessment: id, 
+        attemptStatus: 'IN_PROGRESS'
+      },
+      {
+        attemptStatus: 'RESUME_ALLOWED',
+        tabSwitchCount: 0
+      }
+    );
+    
+    res.json({ 
+      message: 'All in-progress students marked as resume allowed', 
+      count: result.modifiedCount 
+    });
+  } catch (error) {
+    console.error('Error marking all in-progress as resume allowed:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -570,5 +625,7 @@ module.exports = {
   exportAssessmentResults,
   expireAssessmentTimer,
   addQuizQuestion,
-  removeQuizQuestion
+  removeQuizQuestion,
+  markAllInProgressCompleted,
+  markAllInProgressResume
 };

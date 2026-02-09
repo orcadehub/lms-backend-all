@@ -50,6 +50,12 @@ router.get('/:id/results', exportAssessmentResults);
 // PATCH /api/assessments/:id/expire-timer - Handle timer expiration
 router.patch('/:id/expire-timer', require('../controllers/assessmentController').expireAssessmentTimer);
 
+// PATCH /api/assessments/:id/mark-all-inprogress-completed - Mark all in-progress as completed
+router.patch('/:id/mark-all-inprogress-completed', require('../controllers/assessmentController').markAllInProgressCompleted);
+
+// PATCH /api/assessments/:id/mark-all-inprogress-resume - Mark all in-progress as resume allowed
+router.patch('/:id/mark-all-inprogress-resume', require('../controllers/assessmentController').markAllInProgressResume);
+
 // POST /api/assessments/:id/quiz-questions - Add quiz question to assessment
 router.post('/:id/quiz-questions', require('../controllers/assessmentController').addQuizQuestion);
 
