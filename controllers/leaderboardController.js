@@ -7,12 +7,19 @@ const leaderboardController = {
   getAssessmentLeaderboard: async (req, res) => {
     try {
       const tenantIdString = req.query.tenantId;
+      const studentEmail = req.query.email;
       if (!tenantIdString) {
         return res.status(400).json({ message: 'Tenant ID is required' });
       }
       const studentTenantId = new mongoose.Types.ObjectId(tenantIdString);
       
-      console.log('Fetching assessment leaderboard for tenant:', studentTenantId);
+      // Extract domain from student email
+      let emailDomain = null;
+      if (studentEmail) {
+        emailDomain = studentEmail.split('@')[1];
+      }
+      
+      console.log('Fetching assessment leaderboard for tenant:', studentTenantId, 'domain:', emailDomain);
       
       const assessmentLeaderboard = await AssessmentAttempt.aggregate([
         {
@@ -49,7 +56,8 @@ const leaderboardController = {
         },
         {
           $match: {
-            $expr: { $eq: ['$student.tenant', studentTenantId] }
+            $expr: { $eq: ['$student.tenant', studentTenantId] },
+            ...(emailDomain && { 'student.email': { $regex: `@${emailDomain}$`, $options: 'i' } })
           }
         },
         {
@@ -88,12 +96,19 @@ const leaderboardController = {
   getOverallLeaderboard: async (req, res) => {
     try {
       const tenantIdString = req.query.tenantId;
+      const studentEmail = req.query.email;
       if (!tenantIdString) {
         return res.status(400).json({ message: 'Tenant ID is required' });
       }
       const studentTenantId = new mongoose.Types.ObjectId(tenantIdString);
       
-      console.log('Fetching overall leaderboard for tenant:', studentTenantId);
+      // Extract domain from student email
+      let emailDomain = null;
+      if (studentEmail) {
+        emailDomain = studentEmail.split('@')[1];
+      }
+      
+      console.log('Fetching overall leaderboard for tenant:', studentTenantId, 'domain:', emailDomain);
       
       // Use optimized aggregation pipeline for better performance
       const overallLeaderboard = await AssessmentAttempt.aggregate([
@@ -132,7 +147,8 @@ const leaderboardController = {
         },
         {
           $match: {
-            $expr: { $eq: ['$student.tenant', studentTenantId] }
+            $expr: { $eq: ['$student.tenant', studentTenantId] },
+            ...(emailDomain && { 'student.email': { $regex: `@${emailDomain}$`, $options: 'i' } })
           }
         },
         {

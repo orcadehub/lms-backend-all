@@ -26,8 +26,8 @@ const quizQuestionController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { title, codeSnippet, image, language, topic, options, correctAnswer, tags, difficulty } = req.body;
-      const tenantId = req.user.assignedTenants[0];
+      const { title, codeSnippet, image, language, topic, options, correctAnswer, tags, difficulty, tenantId } = req.body;
+      const finalTenantId = tenantId || req.user.tenantId || req.user.assignedTenants?.[0];
 
       const question = new QuizQuestion({
         title,
@@ -39,7 +39,7 @@ const quizQuestionController = {
         correctAnswer,
         tags,
         difficulty,
-        tenant: tenantId,
+        tenant: finalTenantId,
         createdBy: req.user._id
       });
 
@@ -105,7 +105,7 @@ const quizQuestionController = {
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
-      const tenantId = req.user.assignedTenants[0];
+      const tenantId = req.body.tenantId || req.user.tenantId || req.user.assignedTenants?.[0];
       const successfulQuestions = [];
       const failedQuestions = [];
 

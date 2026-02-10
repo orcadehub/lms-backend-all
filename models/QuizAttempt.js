@@ -46,7 +46,7 @@ const quizAttemptSchema = new mongoose.Schema({
   },
   attemptStatus: {
     type: String,
-    enum: ['STARTED', 'IN_PROGRESS', 'INTERRUPTED', 'RESUME_ALLOWED', 'RESUMED', 'COMPLETED', 'AUTO_SUBMITTED', 'TERMINATED', 'TAB_SWITCH_VIOLATION', 'RETAKE_ALLOWED', 'RETAKE_STARTED'],
+    enum: ['STARTED', 'IN_PROGRESS', 'INTERRUPTED', 'RESUME_ALLOWED', 'RESUMED', 'COMPLETED', 'AUTO_SUBMITTED', 'TERMINATED', 'TAB_SWITCH_VIOLATION', 'FULLSCREEN_EXIT_VIOLATION', 'RETAKE_ALLOWED', 'RETAKE_STARTED'],
     default: 'STARTED'
   },
   lastActiveQuestionId: {
@@ -70,7 +70,7 @@ const quizAttemptSchema = new mongoose.Schema({
   },
   submissionReason: {
     type: String,
-    enum: ['MANUAL_SUBMIT', 'AUTO_SUBMIT', 'TIME_UP', 'TAB_SWITCH_VIOLATION', 'INSTRUCTOR_TERMINATED']
+    enum: ['MANUAL_SUBMIT', 'AUTO_SUBMIT', 'TIME_UP', 'TAB_SWITCH_VIOLATION', 'FULLSCREEN_EXIT_VIOLATION', 'INSTRUCTOR_TERMINATED']
   },
   instructorPermissionType: {
     type: String,

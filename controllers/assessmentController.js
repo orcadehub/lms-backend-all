@@ -566,7 +566,7 @@ const markAllInProgressCompleted = async (req, res) => {
     const result = await AssessmentAttempt.updateMany(
       { 
         assessment: id, 
-        attemptStatus: 'IN_PROGRESS'
+        attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED', 'RETAKE_ALLOWED'] }
       },
       {
         attemptStatus: 'COMPLETED',
@@ -576,11 +576,11 @@ const markAllInProgressCompleted = async (req, res) => {
     );
     
     res.json({ 
-      message: 'All in-progress students marked as completed', 
+      message: 'All students marked as completed', 
       count: result.modifiedCount 
     });
   } catch (error) {
-    console.error('Error marking all in-progress as completed:', error);
+    console.error('Error marking students as completed:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -594,7 +594,7 @@ const markAllInProgressResume = async (req, res) => {
     const result = await AssessmentAttempt.updateMany(
       { 
         assessment: id, 
-        attemptStatus: 'IN_PROGRESS'
+        attemptStatus: { $in: ['IN_PROGRESS', 'RETAKE_ALLOWED'] }
       },
       {
         attemptStatus: 'RESUME_ALLOWED',
@@ -603,11 +603,46 @@ const markAllInProgressResume = async (req, res) => {
     );
     
     res.json({ 
-      message: 'All in-progress students marked as resume allowed', 
+      message: 'All students marked as resume allowed', 
       count: result.modifiedCount 
     });
   } catch (error) {
-    console.error('Error marking all in-progress as resume allowed:', error);
+    console.error('Error marking students as resume allowed:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Mark all in-progress students as retake allowed
+const markAllInProgressRetake = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const result = await AssessmentAttempt.updateMany(
+      { 
+        assessment: id, 
+        attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED'] }
+      },
+      {
+        attemptStatus: 'RETAKE_ALLOWED',
+        lastExecutedCode: {},
+        successfulCodes: {},
+        questionPercentages: {},
+        programmingPercentage: 0,
+        quizPercentage: 0,
+        overallPercentage: 0,
+        tabSwitchCount: 0,
+        fullscreenExitCount: 0,
+        quizAnswers: {}
+      }
+    );
+    
+    res.json({ 
+      message: 'All students marked as retake allowed', 
+      count: result.modifiedCount 
+    });
+  } catch (error) {
+    console.error('Error marking students as retake allowed:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -627,5 +662,6 @@ module.exports = {
   addQuizQuestion,
   removeQuizQuestion,
   markAllInProgressCompleted,
-  markAllInProgressResume
+  markAllInProgressResume,
+  markAllInProgressRetake
 };

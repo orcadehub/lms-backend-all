@@ -43,14 +43,14 @@ const quizController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { title, description, duration, questions, batches, students } = req.body;
-      const tenantId = req.user.assignedTenants[0];
+      const { title, description, duration, questions, batches, students, tenantId, tenant } = req.body;
+      const finalTenantId = tenant || tenantId || req.user.tenantId || req.user.assignedTenants?.[0];
 
       // Handle 'all' batches case
       let batchIds = [];
       if (batches === 'all') {
         const Batch = require('../models/Batch');
-        const allBatches = await Batch.find({ tenant: tenantId });
+        const allBatches = await Batch.find({ tenant: finalTenantId });
         batchIds = allBatches.map(batch => batch._id);
       } else {
         batchIds = batches;
@@ -76,7 +76,7 @@ const quizController = {
         answers: answersMap,
         batches: batchIds,
         students,
-        tenant: tenantId,
+        tenant: finalTenantId,
         createdBy: req.user._id,
         status: 'draft'
       });
@@ -200,11 +200,19 @@ const quizController = {
     try {
       console.log('Update quiz request body:', req.body);
       const { id } = req.params;
-      const { startTime, earlyStartBuffer, maxTabSwitches, status, allowedIPs, duration } = req.body;
+      const { title, description, startTime, earlyStartBuffer, maxTabSwitches, status, allowedIPs, duration } = req.body;
       
       const updateData = {
         earlyStartBuffer: earlyStartBuffer || 0
       };
+      
+      if (title) {
+        updateData.title = title;
+      }
+      
+      if (description) {
+        updateData.description = description;
+      }
       
       if (startTime) {
         updateData.startTime = new Date(startTime);
