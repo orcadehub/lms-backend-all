@@ -144,7 +144,7 @@ router.get('/student/quizzes', validateApiKey, async (req, res) => {
     const Quiz = require('../models/Quiz');
     const quizzes = await Quiz.find({
       tenant: tenantId
-    }).select('title description duration questions status createdAt startTime');
+    }).select('title description duration questions status createdAt startTime').sort({ createdAt: -1 });
 
     res.json(quizzes);
   } catch (error) {
@@ -906,7 +906,7 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
         { batches: { $size: 0 } },
         { batches: { $in: batchIds } }
       ]
-    });
+    }).sort({ createdAt: -1 });
 
     const populatedAssessments = await Assessment.populate(assessments, [
       { path: 'questions' },
@@ -1125,6 +1125,22 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       .populate('quizQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    // Check if assessment can be started based on startTime and earlyStartBuffer
+    if (assessment.startTime) {
+      const now = new Date();
+      const earlyStartBuffer = assessment.earlyStartBuffer || 0;
+      const allowedStartTime = new Date(assessment.startTime.getTime() - (earlyStartBuffer * 60 * 1000));
+      
+      if (now < allowedStartTime) {
+        return res.status(403).json({ 
+          message: `Assessment cannot be started yet. It will be available from ${allowedStartTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
+          startTime: assessment.startTime,
+          earlyStartBuffer: earlyStartBuffer,
+          allowedStartTime: allowedStartTime
+        });
+      }
     }
 
     const totalProgrammingQuestions = (assessment.questions && assessment.questions.length) || 0;
@@ -1507,5 +1523,17 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
     res.status(500).json({ message: 'Server error' })
   }
 })
+
+// Get total students count (public endpoint)
+router.get('/student/practice/student-count', async (req, res) => {
+  try {
+    const Student = require('../models/Student');
+    const totalStudents = await Student.countDocuments({ isActive: true });
+    res.json({ totalStudents });
+  } catch (error) {
+    console.error('Error fetching student count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

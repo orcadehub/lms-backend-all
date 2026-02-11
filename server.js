@@ -25,6 +25,8 @@ const pistonRoutes = require('./routes/pistonRoutes');
 const assessmentQuestionRoutes = require('./routes/assessmentQuestionRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
+const pysparkRoutes = require('./routes/pysparkRoutes');
+const companyRoutes = require('./routes/companyRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -50,7 +52,9 @@ app.use(cors({
     'https://orcode.in',
     'http://orcode.in.s3-website.ap-south-2.amazonaws.com',
     'http://seedingminds.co.in',
-    'https://seedingminds.co.in'
+    'https://seedingminds.co.in',
+    'https://orcadehub.in',
+    'http://orcadehub.in'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -111,6 +115,8 @@ app.use('/api/assessment-questions', assessmentQuestionRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/pyspark', pysparkRoutes);
+app.use('/api/company', companyRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {

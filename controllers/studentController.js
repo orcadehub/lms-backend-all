@@ -65,18 +65,17 @@ const studentController = {
   updateStudent: async (req, res) => {
     try {
       const { id } = req.params;
-      const { password } = req.body;
-
-      if (!password || password.trim() === '') {
-        return res.status(400).json({ message: 'Password is required' });
-      }
+      const { name, email, password } = req.body;
 
       const student = await Student.findById(id);
       if (!student) {
         return res.status(404).json({ message: 'Student not found' });
       }
 
-      student.password = password;
+      if (name) student.name = name;
+      if (email) student.email = email;
+      if (password && password.trim() !== '') student.password = password;
+      
       await student.save();
 
       res.json({ message: 'Student updated successfully', student: { _id: student._id, name: student.name, email: student.email } });

@@ -56,6 +56,9 @@ router.patch('/:id/mark-all-inprogress-completed', require('../controllers/asses
 // PATCH /api/assessments/:id/mark-all-inprogress-resume - Mark all in-progress as resume allowed
 router.patch('/:id/mark-all-inprogress-resume', require('../controllers/assessmentController').markAllInProgressResume);
 
+// PATCH /api/assessments/:id/mark-all-completed-resume - Mark all completed as resume allowed
+router.patch('/:id/mark-all-completed-resume', require('../controllers/assessmentController').markAllCompletedResume);
+
 // PATCH /api/assessments/:id/mark-all-inprogress-retake - Mark all in-progress as retake allowed
 router.patch('/:id/mark-all-inprogress-retake', require('../controllers/assessmentController').markAllInProgressRetake);
 

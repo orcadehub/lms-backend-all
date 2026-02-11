@@ -333,6 +333,7 @@ const exportAssessmentResults = async (req, res) => {
     // Define base columns
     const baseColumns = [
       { header: 'Name', key: 'name', width: 20 },
+      { header: 'Roll Number', key: 'rollNumber', width: 20 },
       { header: 'Email', key: 'email', width: 25 },
       { header: 'Quiz Percentage', key: 'quizPercentage', width: 15 },
       { header: 'Programming Percentage', key: 'programmingPercentage', width: 20 },
@@ -419,6 +420,7 @@ const exportAssessmentResults = async (req, res) => {
       
       const rowData = {
         name: attempt.student?.name || 'Unknown',
+        rollNumber: attempt.student?.email ? attempt.student.email.split('@')[0] : 'N/A',
         email: attempt.student?.email || 'N/A',
         quizPercentage: (attempt.quizPercentage || 0).toFixed(2) + '%',
         programmingPercentage: (attempt.programmingPercentage || 0).toFixed(2) + '%',
@@ -647,6 +649,32 @@ const markAllInProgressRetake = async (req, res) => {
   }
 };
 
+const markAllCompletedResume = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const result = await AssessmentAttempt.updateMany(
+      { 
+        assessment: id, 
+        attemptStatus: 'COMPLETED'
+      },
+      {
+        attemptStatus: 'RESUME_ALLOWED',
+        tabSwitchCount: 0
+      }
+    );
+    
+    res.json({ 
+      message: 'All completed students marked as resume allowed', 
+      count: result.modifiedCount 
+    });
+  } catch (error) {
+    console.error('Error marking completed students as resume allowed:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -663,5 +691,6 @@ module.exports = {
   removeQuizQuestion,
   markAllInProgressCompleted,
   markAllInProgressResume,
-  markAllInProgressRetake
+  markAllInProgressRetake,
+  markAllCompletedResume
 };
