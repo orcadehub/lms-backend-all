@@ -27,7 +27,40 @@ const studentSchema = new mongoose.Schema({
     dateOfBirth: Date,
     phone: String,
     address: String,
-    batch: [String]
+    batch: [String],
+    profilePic: String
+  },
+  codingProfiles: {
+    leetcode: {
+      username: String,
+      connected: { type: Boolean, default: false },
+      totalSolved: { type: Number, default: 0 },
+      easySolved: { type: Number, default: 0 },
+      mediumSolved: { type: Number, default: 0 },
+      hardSolved: { type: Number, default: 0 },
+      ranking: { type: Number, default: 0 },
+      acceptanceRate: { type: Number, default: 0 },
+      reputation: { type: Number, default: 0 },
+      lastSynced: Date
+    },
+    hackerrank: {
+      username: String,
+      connected: { type: Boolean, default: false },
+      totalSolved: { type: Number, default: 0 },
+      badges: { type: Number, default: 0 },
+      rank: String,
+      score: { type: Number, default: 0 },
+      lastSynced: Date
+    },
+    codeforces: {
+      username: String,
+      connected: { type: Boolean, default: false },
+      totalSolved: { type: Number, default: 0 },
+      rating: { type: Number, default: 0 },
+      rank: String,
+      maxRating: { type: Number, default: 0 },
+      lastSynced: Date
+    }
   },
   tenant: {
     type: mongoose.Schema.Types.ObjectId,

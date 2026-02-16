@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const topicSchema = new mongoose.Schema({
-  title: {
+  name: {
     type: String,
     required: true,
     trim: true
@@ -10,10 +10,9 @@ const topicSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  difficulty: {
+  domain: {
     type: String,
-    enum: ['Easy', 'Medium', 'Hard'],
-    default: 'Easy'
+    required: true
   },
   order: {
     type: Number,
@@ -22,14 +21,19 @@ const topicSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true
   }
 }, {
   timestamps: true
 });
 
 // Indexes for API optimization
-topicSchema.index({ isActive: 1, order: 1 }); // Get active topics sorted by order
-topicSchema.index({ difficulty: 1, isActive: 1 }); // Filter by difficulty
-topicSchema.index({ order: 1 }); // Sort by order
+topicSchema.index({ tenant: 1, isActive: 1, order: 1 });
+topicSchema.index({ domain: 1, tenant: 1 });
+topicSchema.index({ order: 1 });
 
 module.exports = mongoose.model('Topic', topicSchema);

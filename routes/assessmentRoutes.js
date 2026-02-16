@@ -68,6 +68,12 @@ router.post('/:id/quiz-questions', require('../controllers/assessmentController'
 // DELETE /api/assessments/:id/quiz-questions/:questionId - Remove quiz question from assessment
 router.delete('/:id/quiz-questions/:questionId', require('../controllers/assessmentController').removeQuizQuestion);
 
+// POST /api/assessments/:id/frontend-questions - Add frontend question to assessment
+router.post('/:id/frontend-questions', require('../controllers/assessmentController').addFrontendQuestion);
+
+// DELETE /api/assessments/:id/frontend-questions/:questionId - Remove frontend question from assessment
+router.delete('/:id/frontend-questions/:questionId', require('../controllers/assessmentController').removeFrontendQuestion);
+
 // PATCH /api/assessment-attempts/:attemptId/:action - Handle student actions
 router.patch('/attempts/:attemptId/:action', handleStudentAction);
 

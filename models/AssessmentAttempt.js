@@ -41,6 +41,10 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  totalFrontendQuestions: {
+    type: Number,
+    default: 0
+  },
   timeTaken: {
     type: Number,
     default: 0
@@ -116,6 +120,10 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
+  lastExecutedFrontendCode: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {} // { questionId: { html: '', css: '', js: '' } }
+  },
   successfulCodes: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
@@ -136,9 +144,13 @@ const assessmentAttemptSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  frontendPercentage: {
+    type: Number,
+    default: 0
+  },
   overallPercentage: {
     type: Number,
-    default: 0 // Average of programmingPercentage and quizPercentage
+    default: 0 // Average of programmingPercentage, quizPercentage, and frontendPercentage
   },
   accuracy: {
     type: Number,

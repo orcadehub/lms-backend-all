@@ -8,26 +8,24 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const courseRoutes = require('./routes/courseRoutes');
-const quizRoutes = require('./routes/quizRoutes');
 const instructorRoutes = require('./routes/instructorRoutes');
 const tenantRoutes = require('./routes/tenantRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const batchRoutes = require('./routes/batchRoutes');
-const quizQuestionRoutes = require('./routes/quizQuestionRoutes');
-const quizAttemptRoutes = require('./routes/quizAttemptRoutes');
 const studentAuthRoutes = require('./routes/studentAuthRoutes');
-const practiceRoutes = require('./routes/practiceRoutes');
-const adminPracticeRoutes = require('./routes/adminPracticeRoutes');
-const studentPracticeRoutes = require('./routes/studentPracticeRoutes');
-const gamifiedAttemptRoutes = require('./routes/gamifiedAttemptRoutes');
 const practiceSubmissionRoutes = require('./routes/practiceSubmissionRoutes');
 const pistonRoutes = require('./routes/pistonRoutes');
 const assessmentQuestionRoutes = require('./routes/assessmentQuestionRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
+const programmingQuestionRoutes = require('./routes/programmingQuestionRoutes');
+const frontendQuestionRoutes = require('./routes/frontendQuestionRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
-const pysparkRoutes = require('./routes/pysparkRoutes');
 const companyRoutes = require('./routes/companyRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const errorHandler = require('./middleware/errorHandler');
+
+// Import models to register them
+require('./models/QuizQuestion');
 
 const app = express();
 const server = http.createServer(app);
@@ -96,27 +94,21 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', studentAuthRoutes);
-app.use('/api/auth', practiceRoutes);
-app.use('/api/admin/practice', adminPracticeRoutes);
-app.use('/api/student/practice', studentPracticeRoutes);
-app.use('/api/student/gamified-attempts', gamifiedAttemptRoutes);
 app.use('/api/practice-submissions', practiceSubmissionRoutes);
 app.use('/api/piston', pistonRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
-app.use('/api/quizzes', quizRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/batches', batchRoutes);
-app.use('/api/quiz-questions', quizQuestionRoutes);
-app.use('/api/questions', quizQuestionRoutes);
 app.use('/api/assessment-questions', assessmentQuestionRoutes);
 app.use('/api/assessments', assessmentRoutes);
-app.use('/api/quiz-attempts', quizAttemptRoutes);
+app.use('/api/programming-questions', programmingQuestionRoutes);
+app.use('/api/frontend-questions', frontendQuestionRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
-app.use('/api/pyspark', pysparkRoutes);
 app.use('/api/company', companyRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
@@ -264,31 +256,6 @@ app.post('/api/admin/create-tenant', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
-  }
-});
-
-// Check IP access for quiz
-app.post('/api/check-quiz-access', async (req, res) => {
-  try {
-    const { quizId, userIP } = req.body;
-    
-    const Quiz = require('./models/Quiz');
-    const quiz = await Quiz.findById(quizId);
-    
-    if (!quiz) {
-      return res.status(404).json({ message: 'Quiz not found' });
-    }
-    
-    const hasAccess = !quiz.allowedIPs || quiz.allowedIPs.length === 0 || quiz.allowedIPs.includes(userIP);
-    
-    res.json({
-      hasAccess,
-      userIP,
-      allowedIPs: quiz.allowedIPs || [],
-      message: hasAccess ? 'Access granted' : 'Access denied - IP not authorized'
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

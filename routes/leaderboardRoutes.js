@@ -4,10 +4,6 @@ const {
   getAssessmentLeaderboard,
   getOverallLeaderboard
 } = require('../controllers/leaderboardController');
-const { auth } = require('../middleware/auth');
-
-// All routes require authentication
-router.use(auth);
 
 // GET /api/leaderboard/assessments - Get assessment leaderboard
 router.get('/assessments', getAssessmentLeaderboard);

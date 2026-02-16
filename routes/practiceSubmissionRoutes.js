@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const PracticeSubmission = require('../models/PracticeSubmission');
-const Question = require('../models/Question');
+const ProgrammingQuestion = require('../models/ProgrammingQuestion');
 const { auth } = require('../middleware/auth');
 
 // Submit practice solution
@@ -33,7 +33,7 @@ router.post('/submit', auth, async (req, res) => {
     
     if (!practiceSubmission) {
       // Get question details for coins
-      const question = await Question.findById(questionId);
+      const question = await ProgrammingQuestion.findById(questionId);
       console.log('Question found:', question);
       
       practiceSubmission = new PracticeSubmission({
@@ -121,7 +121,7 @@ router.post('/save-code', auth, async (req, res) => {
     let practiceSubmission = await PracticeSubmission.findOne({ userId, questionId });
     
     if (!practiceSubmission) {
-      const question = await Question.findById(questionId);
+      const question = await ProgrammingQuestion.findById(questionId);
       practiceSubmission = new PracticeSubmission({
         userId,
         questionId,

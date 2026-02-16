@@ -6,9 +6,13 @@ const assessmentQuestionController = {
   getQuestionsByType: async (req, res) => {
     try {
       const { type } = req.query;
-      const questions = await AssessmentQuestion.find({ 
-        assessmentType: type
-      }).sort({ createdAt: -1 });
+      const filter = { isActive: true };
+      
+      if (type && type !== 'all') {
+        filter.assessmentType = type;
+      }
+      
+      const questions = await AssessmentQuestion.find(filter).sort({ createdAt: -1 });
       
       res.json(questions);
     } catch (error) {

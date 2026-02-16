@@ -30,6 +30,10 @@ const assessmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AssessmentQuestion'
   }],
+  frontendQuestions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FrontendQuestion'
+  }],
   quizQuestions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QuizQuestion'

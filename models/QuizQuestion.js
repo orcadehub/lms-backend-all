@@ -11,7 +11,7 @@ const quizQuestionSchema = new mongoose.Schema({
     trim: true
   },
   image: {
-    type: String, // URL or file path
+    type: String,
     trim: true
   },
   language: {
@@ -28,7 +28,7 @@ const quizQuestionSchema = new mongoose.Schema({
       trim: true
     },
     image: {
-      type: String, // URL or file path for image-based options
+      type: String,
       trim: true
     }
   }],
@@ -48,7 +48,7 @@ const quizQuestionSchema = new mongoose.Schema({
     ref: 'Instructor',
     required: true
   },
-  tags: [String], // For categorization
+  tags: [String],
   difficulty: {
     type: String,
     enum: ['easy', 'medium', 'hard'],
@@ -58,11 +58,10 @@ const quizQuestionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for API optimization
-quizQuestionSchema.index({ tenant: 1, isActive: 1 }); // Get questions by tenant
-quizQuestionSchema.index({ createdBy: 1, tenant: 1 }); // Get questions by instructor
-quizQuestionSchema.index({ topic: 1, difficulty: 1 }); // Filter by topic and difficulty
-quizQuestionSchema.index({ tags: 1 }); // Search by tags
-quizQuestionSchema.index({ difficulty: 1 }); // Filter by difficulty
+quizQuestionSchema.index({ tenant: 1, isActive: 1 });
+quizQuestionSchema.index({ createdBy: 1, tenant: 1 });
+quizQuestionSchema.index({ topic: 1, difficulty: 1 });
+quizQuestionSchema.index({ tags: 1 });
+quizQuestionSchema.index({ difficulty: 1 });
 
 module.exports = mongoose.model('QuizQuestion', quizQuestionSchema);

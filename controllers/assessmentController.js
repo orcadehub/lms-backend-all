@@ -77,8 +77,9 @@ const getAssessmentById = async (req, res) => {
     const assessment = await Assessment.findById(id)
       .populate('questions')
       .populate('quizQuestions')
+      .populate('frontendQuestions')
       .populate('createdBy', 'name')
-      .select('+startTime +showKeyInsights +showAlgorithmSteps');
+      .select('+startTime +showKeyInsights +showAlgorithmSteps +type');
     
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -559,6 +560,55 @@ const removeQuizQuestion = async (req, res) => {
   }
 };
 
+// Add frontend question to assessment
+const addFrontendQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questionId } = req.body;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (!assessment.frontendQuestions) {
+      assessment.frontendQuestions = [];
+    }
+    
+    if (!assessment.frontendQuestions.includes(questionId)) {
+      assessment.frontendQuestions.push(questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('frontendQuestions');
+    res.json({ message: 'Frontend question added successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove frontend question from assessment
+const removeFrontendQuestion = async (req, res) => {
+  try {
+    const { id, questionId } = req.params;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (assessment.frontendQuestions) {
+      assessment.frontendQuestions = assessment.frontendQuestions.filter(q => q.toString() !== questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('frontendQuestions');
+    res.json({ message: 'Frontend question removed successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Mark all in-progress students as completed
 const markAllInProgressCompleted = async (req, res) => {
   try {
@@ -689,6 +739,8 @@ module.exports = {
   expireAssessmentTimer,
   addQuizQuestion,
   removeQuizQuestion,
+  addFrontendQuestion,
+  removeFrontendQuestion,
   markAllInProgressCompleted,
   markAllInProgressResume,
   markAllInProgressRetake,

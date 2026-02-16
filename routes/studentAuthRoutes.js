@@ -665,23 +665,12 @@ router.patch('/student/attempt/:attemptId/tab-switch', validateApiKey, async (re
 
     const { attemptId } = req.params;
 
-    // Try to update QuizAttempt first
-    const QuizAttempt = require('../models/QuizAttempt');
-    let updated = await QuizAttempt.findByIdAndUpdate(
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const updated = await AssessmentAttempt.findByIdAndUpdate(
       attemptId, 
       { $inc: { tabSwitchCount: 1 } },
       { new: true }
     );
-    
-    // If not found in QuizAttempt, try AssessmentAttempt
-    if (!updated) {
-      const AssessmentAttempt = require('../models/AssessmentAttempt');
-      updated = await AssessmentAttempt.findByIdAndUpdate(
-        attemptId, 
-        { $inc: { tabSwitchCount: 1 } },
-        { new: true }
-      );
-    }
     
     if (!updated) {
       return res.status(404).json({ message: 'Attempt not found' });
@@ -704,23 +693,12 @@ router.patch('/student/attempt/:attemptId/fullscreen-exit', validateApiKey, asyn
 
     const { attemptId } = req.params;
 
-    // Try to update QuizAttempt first
-    const QuizAttempt = require('../models/QuizAttempt');
-    let updated = await QuizAttempt.findByIdAndUpdate(
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const updated = await AssessmentAttempt.findByIdAndUpdate(
       attemptId, 
       { $inc: { fullscreenExitCount: 1 } },
       { new: true }
     );
-    
-    // If not found in QuizAttempt, try AssessmentAttempt
-    if (!updated) {
-      const AssessmentAttempt = require('../models/AssessmentAttempt');
-      updated = await AssessmentAttempt.findByIdAndUpdate(
-        attemptId, 
-        { $inc: { fullscreenExitCount: 1 } },
-        { new: true }
-      );
-    }
     
     if (!updated) {
       return res.status(404).json({ message: 'Attempt not found' });
@@ -938,8 +916,8 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
       tenantId: tenantId
     })
     .populate('questions')
-    .populate('quizQuestions')
-    .select('title description duration questions quizQuestions status createdAt startTime earlyStartBuffer maxTabSwitches allowedLanguages showKeyInsights showAlgorithmSteps');
+    .populate('frontendQuestions')
+    .populate('quizQuestions');
 
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -974,6 +952,9 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
       select: '-solution' // Exclude only solutions, keep testCases
     })
     .populate({
+      path: 'frontendQuestions'
+    })
+    .populate({
       path: 'quizQuestions',
       select: '-correctAnswer' // Exclude correct answers
     });
@@ -984,6 +965,7 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
 
     res.json({
       programmingQuestions: assessment.questions,
+      frontendQuestions: assessment.frontendQuestions,
       quizQuestions: assessment.quizQuestions
     });
   } catch (error) {
@@ -1122,6 +1104,7 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     // First attempt
     const assessment = await Assessment.findById(assessmentId)
       .populate('questions')
+      .populate('frontendQuestions')
       .populate('quizQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -1144,8 +1127,9 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     }
 
     const totalProgrammingQuestions = (assessment.questions && assessment.questions.length) || 0;
+    const totalFrontendQuestions = (assessment.frontendQuestions && assessment.frontendQuestions.length) || 0;
     const totalQuizQuestions = (assessment.quizQuestions && assessment.quizQuestions.length) || 0;
-    const totalQuestions = totalProgrammingQuestions + totalQuizQuestions;
+    const totalQuestions = totalProgrammingQuestions + totalFrontendQuestions + totalQuizQuestions;
 
     console.log('Assessment counts:', {
       totalProgrammingQuestions,
@@ -1162,6 +1146,7 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       attemptNumber: 1,
       totalQuestions: totalQuestions,
       totalProgrammingQuestions: totalProgrammingQuestions,
+      totalFrontendQuestions: totalFrontendQuestions,
       totalQuizQuestions: totalQuizQuestions,
       startedAt: new Date(),
       remainingTimeSeconds: assessment.duration * 60,
@@ -1434,6 +1419,87 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     })
   } catch (error) {
     console.error('Error saving code:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// Save frontend code
+router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' })
+    }
+
+    const { attemptId } = req.params
+    const { questionId, html, css, js, testResults } = req.body
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt')
+    const Assessment = require('../models/Assessment')
+    
+    const attempt = await AssessmentAttempt.findById(attemptId)
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' })
+    }
+
+    // Update last executed frontend code
+    const lastExecutedFrontendCode = attempt.lastExecutedFrontendCode || {}
+    lastExecutedFrontendCode[questionId] = { html, css, js }
+    
+    // Calculate percentage for this question if testResults provided
+    const questionPercentages = attempt.questionPercentages || {}
+    
+    if (testResults && testResults.tests && testResults.tests.length > 0) {
+      const passedTests = testResults.tests.filter(test => test.status === 'passed').length
+      const totalTests = testResults.tests.length
+      const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
+      questionPercentages[questionId] = percentage
+    }
+    
+    // Get assessment to identify frontend questions
+    const assessment = await Assessment.findById(attempt.assessment).populate('frontendQuestions')
+    const frontendQuestionIds = assessment.frontendQuestions.map(q => q._id.toString())
+    
+    // Calculate frontend percentage
+    const frontendPercentages = Object.entries(questionPercentages)
+      .filter(([qId]) => frontendQuestionIds.includes(qId))
+      .map(([, percentage]) => percentage)
+    
+    const frontendPercentageSum = frontendPercentages.reduce((sum, p) => sum + p, 0)
+    const totalFrontendQuestions = attempt.totalFrontendQuestions || 0
+    const frontendPercentage = totalFrontendQuestions > 0
+      ? Math.round(frontendPercentageSum / totalFrontendQuestions)
+      : 0
+    
+    // Calculate overall percentage
+    const programmingPercentage = attempt.programmingPercentage || 0
+    const quizPercentage = attempt.quizPercentage || 0
+    const totalProgramming = attempt.totalProgrammingQuestions || 0
+    const totalQuiz = attempt.totalQuizQuestions || 0
+    const totalFrontend = attempt.totalFrontendQuestions || 0
+    
+    let overallPercentage = 0
+    let count = 0
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++ }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++ }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++ }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      lastExecutedFrontendCode,
+      questionPercentages,
+      frontendPercentage,
+      overallPercentage
+    })
+
+    res.json({ 
+      message: 'Frontend code saved successfully',
+      questionPercentage: questionPercentages[questionId] || 0,
+      frontendPercentage,
+      overallPercentage
+    })
+  } catch (error) {
+    console.error('Error saving frontend code:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })
