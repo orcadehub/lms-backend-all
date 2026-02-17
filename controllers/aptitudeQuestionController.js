@@ -15,6 +15,16 @@ const aptitudeQuestionController = {
     }
   },
 
+  // Get all unique topics
+  getAllTopics: async (req, res) => {
+    try {
+      const topics = await AptitudeQuestion.distinct('topic');
+      res.json(topics);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
   // Create single aptitude question
   createQuestion: async (req, res) => {
     try {

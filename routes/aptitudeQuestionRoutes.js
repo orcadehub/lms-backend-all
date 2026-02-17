@@ -10,6 +10,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Get all aptitude questions
 router.get('/', auth, checkPermission('manage_aptitude_questions'), aptitudeQuestionController.getAllQuestions);
 
+// Get all unique topics
+router.get('/topics', auth, checkPermission('manage_aptitude_questions'), aptitudeQuestionController.getAllTopics);
+
 // Create single aptitude question
 router.post('/', auth, checkPermission('manage_aptitude_questions'), aptitudeQuestionController.createQuestion);
 
