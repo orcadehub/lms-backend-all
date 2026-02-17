@@ -22,6 +22,7 @@ const frontendQuestionRoutes = require('./routes/frontendQuestionRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const aptitudeQuestionRoutes = require('./routes/aptitudeQuestionRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -109,6 +110,7 @@ app.use('/api/frontend-questions', frontendQuestionRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/aptitude-questions', aptitudeQuestionRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
