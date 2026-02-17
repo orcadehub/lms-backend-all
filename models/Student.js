@@ -32,7 +32,7 @@ const studentSchema = new mongoose.Schema({
   },
   codingProfiles: {
     leetcode: {
-      username: String,
+      username: { type: String, unique: true, sparse: true },
       connected: { type: Boolean, default: false },
       totalSolved: { type: Number, default: 0 },
       easySolved: { type: Number, default: 0 },
@@ -44,7 +44,7 @@ const studentSchema = new mongoose.Schema({
       lastSynced: Date
     },
     hackerrank: {
-      username: String,
+      username: { type: String, unique: true, sparse: true },
       connected: { type: Boolean, default: false },
       totalSolved: { type: Number, default: 0 },
       badges: { type: Number, default: 0 },
@@ -53,7 +53,7 @@ const studentSchema = new mongoose.Schema({
       lastSynced: Date
     },
     codeforces: {
-      username: String,
+      username: { type: String, unique: true, sparse: true },
       connected: { type: Boolean, default: false },
       totalSolved: { type: Number, default: 0 },
       rating: { type: Number, default: 0 },
@@ -98,7 +98,6 @@ const studentSchema = new mongoose.Schema({
 });
 
 // Indexes for login optimization
-studentSchema.index({ email: 1 }); // Single field index for email
 studentSchema.index({ email: 1, tenant: 1 }); // Compound index for multi-tenant login
 studentSchema.index({ tenant: 1, isActive: 1 }); // Index for active students by tenant
 
