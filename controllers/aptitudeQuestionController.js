@@ -2,11 +2,11 @@ const AptitudeQuestion = require('../models/AptitudeQuestion');
 const XLSX = require('xlsx');
 
 const aptitudeQuestionController = {
-  // Get all aptitude questions for a tenant
+  // Get all aptitude questions for the logged-in instructor
   getAllQuestions: async (req, res) => {
     try {
-      const tenantId = req.user.assignedTenants[0];
-      const questions = await AptitudeQuestion.find({ tenant: tenantId })
+      const instructorId = req.user._id;
+      const questions = await AptitudeQuestion.find({ createdBy: instructorId })
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 });
       res.json(questions);
