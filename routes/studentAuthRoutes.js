@@ -1639,4 +1639,86 @@ router.post('/student/change-password', validateApiKey, async (req, res) => {
   }
 });
 
+// Forgot password - send OTP
+router.post('/student/forgot-password', validateApiKey, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const student = await Student.findOne({ 
+      email: email.toLowerCase(),
+      tenant: tenantId,
+      isActive: true
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Save OTP and expiry (10 minutes)
+    student.resetPasswordOTP = otp;
+    student.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await student.save();
+
+    // Send OTP email
+    const { sendOTPEmail } = require('../utils/emailService');
+    await sendOTPEmail(student.email, otp, student.name);
+
+    res.json({ message: 'OTP sent to your email' });
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    res.status(500).json({ message: 'Failed to send OTP' });
+  }
+});
+
+// Verify OTP and reset password
+router.post('/student/reset-password', validateApiKey, async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Email, OTP, and new password are required' });
+    }
+
+    const student = await Student.findOne({ 
+      email: email.toLowerCase(),
+      tenant: tenantId,
+      isActive: true
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Check OTP
+    if (!student.resetPasswordOTP || student.resetPasswordOTP !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    // Check expiry
+    if (!student.resetPasswordExpires || new Date() > student.resetPasswordExpires) {
+      return res.status(400).json({ message: 'OTP expired' });
+    }
+
+    // Reset password
+    student.password = newPassword;
+    student.resetPasswordOTP = undefined;
+    student.resetPasswordExpires = undefined;
+    await student.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ message: 'Failed to reset password' });
+  }
+});
+
 module.exports = router;
