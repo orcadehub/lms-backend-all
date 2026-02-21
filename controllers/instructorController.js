@@ -15,8 +15,11 @@ const instructorController = {
   // Create new instructor
   createInstructor: async (req, res) => {
     try {
+      console.log('Creating instructor with data:', req.body);
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('Validation errors:', errors.array());
         return res.status(400).json({ errors: errors.array() });
       }
 
@@ -32,14 +35,15 @@ const instructorController = {
         name,
         email,
         password,
-        profile: { expertise },
-        permissions,
-        assignedTenants
+        profile: { expertise: Array.isArray(expertise) ? expertise : [expertise] },
+        permissions: Array.isArray(permissions) ? permissions : [],
+        assignedTenants: Array.isArray(assignedTenants) ? assignedTenants : []
       });
 
       await instructor.save();
       res.status(201).json({ message: 'Instructor created successfully', instructor });
     } catch (error) {
+      console.error('Error creating instructor:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   },
