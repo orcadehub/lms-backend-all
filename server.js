@@ -265,6 +265,26 @@ app.post('/api/admin/create-tenant', async (req, res) => {
   }
 });
 
+// Add study materials permission to all instructors
+app.post('/api/admin/add-study-materials-permission', async (req, res) => {
+  try {
+    await connectDB();
+    const Instructor = require('./models/Instructor');
+    
+    const result = await Instructor.updateMany(
+      { permissions: { $ne: 'manage_study_materials' } },
+      { $addToSet: { permissions: 'manage_study_materials' } }
+    );
+    
+    res.json({ 
+      message: 'Study materials permission added',
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Check IP access for assessment
 app.post('/api/check-assessment-access', async (req, res) => {
   try {
