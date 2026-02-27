@@ -3,7 +3,14 @@ const vm = require('vm');
 
 async function runFrontendTests(html, css, js, testFile) {
   try {
+    console.log('=== Frontend Test Runner ===');
+    console.log('HTML length:', html?.length || 0);
+    console.log('CSS length:', css?.length || 0);
+    console.log('JS length:', js?.length || 0);
+    console.log('JS content:', js);
+    
     if (!html || html.trim() === '' || !testFile || testFile.trim() === '') {
+      console.log('Missing required fields');
       return {
         passed: 0,
         failed: 0,
@@ -36,12 +43,16 @@ async function runFrontendTests(html, css, js, testFile) {
     // Execute JavaScript in the window context with proper scope
     if (js && js.trim() !== '') {
       try {
+        console.log('Executing JS...');
         const script = new vm.Script(js);
         const context = vm.createContext(window);
         script.runInContext(context);
+        console.log('JS executed successfully');
       } catch (err) {
         console.error('JS execution error:', err);
       }
+    } else {
+      console.log('No JS to execute');
     }
 
     // Extract beforeEach
@@ -59,6 +70,7 @@ async function runFrontendTests(html, css, js, testFile) {
     while ((match = testRegex.exec(testFile)) !== null) {
       const testName = match[1];
       const testBody = match[2];
+      console.log(`Running test: ${testName}`);
       
       try {
         // Run beforeEach
@@ -87,8 +99,10 @@ async function runFrontendTests(html, css, js, testFile) {
         const testFunc = new Function('document', 'window', 'expect', testBody);
         testFunc(document, window, expect);
         
+        console.log(`✓ Test passed: ${testName}`);
         testResults.push({ name: testName, status: 'passed' });
       } catch (error) {
+        console.log(`✗ Test failed: ${testName} - ${error.message}`);
         testResults.push({ name: testName, status: 'failed', error: error.message });
       }
     }
@@ -96,6 +110,7 @@ async function runFrontendTests(html, css, js, testFile) {
     const passed = testResults.filter(t => t.status === 'passed').length;
     const total = testResults.length;
 
+    console.log(`Test Results: ${passed}/${total} passed`);
     dom.window.close();
 
     return {
@@ -105,6 +120,7 @@ async function runFrontendTests(html, css, js, testFile) {
       tests: testResults
     };
   } catch (error) {
+    console.error('Frontend test runner error:', error);
     return {
       passed: 0,
       failed: 0,
