@@ -1,13 +1,30 @@
 const { JSDOM } = require('jsdom');
 const vm = require('vm');
 
+function decodeHtmlEntities(text) {
+  const entities = {
+    '&#39;': "'",
+    '&quot;': '"',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&'
+  };
+  return text.replace(/&#39;|&quot;|&lt;|&gt;|&amp;/g, match => entities[match]);
+}
+
 async function runFrontendTests(html, css, js, testFile) {
   try {
     console.log('=== Frontend Test Runner ===');
     console.log('HTML length:', html?.length || 0);
     console.log('CSS length:', css?.length || 0);
     console.log('JS length:', js?.length || 0);
-    console.log('JS content:', js);
+    
+    // Decode HTML entities
+    html = decodeHtmlEntities(html || '');
+    css = decodeHtmlEntities(css || '');
+    js = decodeHtmlEntities(js || '');
+    
+    console.log('JS content after decode:', js);
     
     if (!html || html.trim() === '' || !testFile || testFile.trim() === '') {
       console.log('Missing required fields');
