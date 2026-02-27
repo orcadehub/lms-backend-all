@@ -1,5 +1,4 @@
 const { JSDOM } = require('jsdom');
-const vm = require('vm');
 
 function decodeHtmlEntities(text) {
   const entities = {
@@ -45,11 +44,12 @@ async function runFrontendTests(html, css, js, testFile) {
       </head>
       <body>
         ${html}
+        <script>${js || ''}</script>
       </body>
       </html>
     `;
 
-    const dom = new JSDOM(fullHtml);
+    const dom = new JSDOM(fullHtml, { runScripts: 'dangerously', resources: 'usable' });
     const { window } = dom;
     const { document } = window;
     
@@ -57,20 +57,8 @@ async function runFrontendTests(html, css, js, testFile) {
     window.__CSS__ = css;
     window.__JS__ = js;
 
-    // Execute JavaScript in the window context with proper scope
-    if (js && js.trim() !== '') {
-      try {
-        console.log('Executing JS...');
-        const script = new vm.Script(js);
-        const context = vm.createContext(window);
-        script.runInContext(context);
-        console.log('JS executed successfully');
-      } catch (err) {
-        console.error('JS execution error:', err);
-      }
-    } else {
-      console.log('No JS to execute');
-    }
+    // Wait for scripts to execute
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Extract beforeEach
     let beforeEachCode = '';
