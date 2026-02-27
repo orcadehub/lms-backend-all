@@ -1,4 +1,5 @@
 const { JSDOM } = require('jsdom');
+const vm = require('vm');
 
 async function runFrontendTests(html, css, js, testFile) {
   try {
@@ -32,11 +33,12 @@ async function runFrontendTests(html, css, js, testFile) {
     window.__CSS__ = css;
     window.__JS__ = js;
 
-    // Execute JavaScript in the window context
+    // Execute JavaScript in the window context with proper scope
     if (js && js.trim() !== '') {
       try {
-        const jsFunc = new Function('window', 'document', js);
-        jsFunc(window, document);
+        const script = new vm.Script(js);
+        const context = vm.createContext(window);
+        script.runInContext(context);
       } catch (err) {
         console.error('JS execution error:', err);
       }
