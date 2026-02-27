@@ -20,22 +20,19 @@ async function runFrontendTests(html, css, js, testFile) {
       </head>
       <body>
         ${html}
+        <script>${js || ''}</script>
       </body>
       </html>
     `;
 
-    const dom = new JSDOM(fullHtml, { runScripts: 'dangerously' });
+    const dom = new JSDOM(fullHtml, { runScripts: 'dangerously', resources: 'usable' });
     const { window } = dom;
     window.__HTML__ = html;
     window.__CSS__ = css;
     window.__JS__ = js;
 
-    // Execute student's JavaScript
-    if (js && js.trim() !== '') {
-      const scriptEl = window.document.createElement('script');
-      scriptEl.textContent = js;
-      window.document.body.appendChild(scriptEl);
-    }
+    // Wait for scripts to execute
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Extract beforeEach
     let beforeEachCode = '';
@@ -56,12 +53,8 @@ async function runFrontendTests(html, css, js, testFile) {
       try {
         // Run beforeEach
         if (beforeEachCode) {
-          const beforeFunc = new Function('document', 'window', 'eval', beforeEachCode);
-          beforeFunc(window.document, window, (code) => {
-            const script = window.document.createElement('script');
-            script.textContent = code;
-            window.document.body.appendChild(script);
-          });
+          const beforeFunc = new Function('document', 'window', beforeEachCode);
+          beforeFunc(window.document, window);
         }
 
         // Mock expect with all methods
