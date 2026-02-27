@@ -20,19 +20,27 @@ async function runFrontendTests(html, css, js, testFile) {
       </head>
       <body>
         ${html}
-        <script>${js || ''}</script>
       </body>
       </html>
     `;
 
-    const dom = new JSDOM(fullHtml, { runScripts: 'dangerously', resources: 'usable' });
+    const dom = new JSDOM(fullHtml);
     const { window } = dom;
+    const { document } = window;
+    
     window.__HTML__ = html;
     window.__CSS__ = css;
     window.__JS__ = js;
 
-    // Wait for scripts to execute
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Execute JavaScript in the window context
+    if (js && js.trim() !== '') {
+      try {
+        const jsFunc = new Function('window', 'document', js);
+        jsFunc(window, document);
+      } catch (err) {
+        console.error('JS execution error:', err);
+      }
+    }
 
     // Extract beforeEach
     let beforeEachCode = '';
@@ -54,7 +62,7 @@ async function runFrontendTests(html, css, js, testFile) {
         // Run beforeEach
         if (beforeEachCode) {
           const beforeFunc = new Function('document', 'window', beforeEachCode);
-          beforeFunc(window.document, window);
+          beforeFunc(document, window);
         }
 
         // Mock expect with all methods
@@ -75,7 +83,7 @@ async function runFrontendTests(html, css, js, testFile) {
 
         // Run test
         const testFunc = new Function('document', 'window', 'expect', testBody);
-        testFunc(window.document, window, expect);
+        testFunc(document, window, expect);
         
         testResults.push({ name: testName, status: 'passed' });
       } catch (error) {
