@@ -41,6 +41,10 @@ const frontendQuestionSchema = new mongoose.Schema({
     enum: ['html', 'css', 'js'],
     default: ['html', 'css', 'js']
   }],
+  expectedOutput: {
+    type: String,
+    default: ''
+  },
   difficulty: {
     type: String,
     enum: ['easy', 'medium', 'hard'],

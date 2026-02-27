@@ -78,6 +78,7 @@ const getAssessmentById = async (req, res) => {
       .populate('questions')
       .populate('quizQuestions')
       .populate('frontendQuestions')
+      .populate('mongodbPlaygroundQuestions')
       .populate('createdBy', 'name')
       .select('+startTime +showKeyInsights +showAlgorithmSteps +type');
     
@@ -125,6 +126,10 @@ const deleteAssessment = async (req, res) => {
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
     }
+    
+    // Delete all attempts for this assessment
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    await AssessmentAttempt.deleteMany({ assessment: id });
     
     res.json({ message: 'Assessment deleted successfully' });
   } catch (error) {
@@ -560,6 +565,55 @@ const removeQuizQuestion = async (req, res) => {
   }
 };
 
+// Add MongoDB question to assessment
+const addMongoDBQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questionId } = req.body;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (!assessment.mongodbPlaygroundQuestions) {
+      assessment.mongodbPlaygroundQuestions = [];
+    }
+    
+    if (!assessment.mongodbPlaygroundQuestions.includes(questionId)) {
+      assessment.mongodbPlaygroundQuestions.push(questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('mongodbPlaygroundQuestions');
+    res.json({ message: 'MongoDB question added successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove MongoDB question from assessment
+const removeMongoDBQuestion = async (req, res) => {
+  try {
+    const { id, questionId } = req.params;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (assessment.mongodbPlaygroundQuestions) {
+      assessment.mongodbPlaygroundQuestions = assessment.mongodbPlaygroundQuestions.filter(q => q.toString() !== questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('mongodbPlaygroundQuestions');
+    res.json({ message: 'MongoDB question removed successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Add frontend question to assessment
 const addFrontendQuestion = async (req, res) => {
   try {
@@ -725,6 +779,23 @@ const markAllCompletedResume = async (req, res) => {
   }
 };
 
+const deleteAllAttempts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    
+    const result = await AssessmentAttempt.deleteMany({ assessment: id });
+    
+    res.json({ 
+      message: 'All attempts deleted successfully', 
+      count: result.deletedCount 
+    });
+  } catch (error) {
+    console.error('Error deleting attempts:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -741,8 +812,11 @@ module.exports = {
   removeQuizQuestion,
   addFrontendQuestion,
   removeFrontendQuestion,
+  addMongoDBQuestion,
+  removeMongoDBQuestion,
   markAllInProgressCompleted,
   markAllInProgressResume,
   markAllInProgressRetake,
-  markAllCompletedResume
+  markAllCompletedResume,
+  deleteAllAttempts
 };

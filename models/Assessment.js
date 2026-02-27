@@ -13,12 +13,12 @@ const assessmentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'system-design', 'aptitude', 'technical', 'behavioral']
+    enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'mongodb', 'system-design', 'aptitude', 'technical', 'behavioral']
   },
   duration: {
     type: Number,
     required: true,
-    min: 30,
+    min: 5,
     max: 300
   },
   difficulty: {
@@ -37,6 +37,10 @@ const assessmentSchema = new mongoose.Schema({
   quizQuestions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'QuizQuestion'
+  }],
+  mongodbPlaygroundQuestions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MongoDBPlaygroundQuestion'
   }],
   batches: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -72,7 +76,7 @@ const assessmentSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0,
-    max: 60
+    max: 300
   },
   maxTabSwitches: {
     type: Number,

@@ -77,7 +77,7 @@ router.get('/student/profile', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
 
     const student = await Student.findOne({
@@ -112,7 +112,7 @@ router.get('/student/batches', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
 
     // Find batches where this student is enrolled
@@ -191,7 +191,7 @@ router.get('/student/quiz/:quizId/attempts', validateApiKey, async (req, res) =>
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { quizId } = req.params;
 
@@ -218,7 +218,7 @@ router.get('/student/quiz/:quizId/attempt', validateApiKey, async (req, res) => 
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { quizId } = req.params;
 
@@ -245,7 +245,7 @@ router.post('/student/quiz/:quizId/start', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { quizId } = req.params;
 
@@ -527,7 +527,7 @@ router.post('/student/quiz/:quizId/session-start', validateApiKey, async (req, r
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { quizId } = req.params;
     const { startIP, systemInfo, startTime } = req.body;
@@ -720,7 +720,7 @@ router.get('/student/quiz/:quizId/results', validateApiKey, async (req, res) => 
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { quizId } = req.params;
 
@@ -861,7 +861,7 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
 
     const Assessment = require('../models/Assessment');
@@ -955,6 +955,9 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
       path: 'frontendQuestions'
     })
     .populate({
+      path: 'mongodbPlaygroundQuestions'
+    })
+    .populate({
       path: 'quizQuestions',
       select: '-correctAnswer' // Exclude correct answers
     });
@@ -966,6 +969,7 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
     res.json({
       programmingQuestions: assessment.questions,
       frontendQuestions: assessment.frontendQuestions,
+      mongodbPlaygroundQuestions: assessment.mongodbPlaygroundQuestions,
       quizQuestions: assessment.quizQuestions
     });
   } catch (error) {
@@ -983,7 +987,7 @@ router.get('/student/assessment/:assessmentId/attempts', validateApiKey, async (
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
 
@@ -1010,7 +1014,7 @@ router.get('/student/assessment/:assessmentId/attempt', validateApiKey, async (r
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
 
@@ -1037,10 +1041,15 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
     const { systemInfo, startIP } = req.body;
+
+    if (!studentId) {
+      console.error('Student ID not found in token:', decoded);
+      return res.status(401).json({ message: 'Invalid token: student ID missing' });
+    }
 
     const Assessment = require('../models/Assessment');
     const AssessmentAttempt = require('../models/AssessmentAttempt');
@@ -1105,7 +1114,8 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     const assessment = await Assessment.findById(assessmentId)
       .populate('questions')
       .populate('frontendQuestions')
-      .populate('quizQuestions');
+      .populate('quizQuestions')
+      .populate('mongodbPlaygroundQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
     }
@@ -1129,14 +1139,15 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     const totalProgrammingQuestions = (assessment.questions && assessment.questions.length) || 0;
     const totalFrontendQuestions = (assessment.frontendQuestions && assessment.frontendQuestions.length) || 0;
     const totalQuizQuestions = (assessment.quizQuestions && assessment.quizQuestions.length) || 0;
-    const totalQuestions = totalProgrammingQuestions + totalFrontendQuestions + totalQuizQuestions;
+    const totalMongoDBQuestions = (assessment.mongodbPlaygroundQuestions && assessment.mongodbPlaygroundQuestions.length) || 0;
+    const totalQuestions = totalProgrammingQuestions + totalFrontendQuestions + totalQuizQuestions + totalMongoDBQuestions;
 
     console.log('Assessment counts:', {
       totalProgrammingQuestions,
+      totalFrontendQuestions,
       totalQuizQuestions,
-      totalQuestions,
-      programmingQuestionsArray: assessment.questions,
-      quizQuestionsArray: assessment.quizQuestions
+      totalMongoDBQuestions,
+      totalQuestions
     });
 
     const attempt = new AssessmentAttempt({
@@ -1148,6 +1159,7 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       totalProgrammingQuestions: totalProgrammingQuestions,
       totalFrontendQuestions: totalFrontendQuestions,
       totalQuizQuestions: totalQuizQuestions,
+      totalMongoDBQuestions: totalMongoDBQuestions,
       startedAt: new Date(),
       remainingTimeSeconds: assessment.duration * 60,
       attemptStatus: 'IN_PROGRESS'
@@ -1555,19 +1567,22 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
 
     // Calculate overall percentage
     const programmingPercentage = attempt.programmingPercentage || 0
+    const frontendPercentage = attempt.frontendPercentage || 0
     const attemptTotalQuizQuestions = attempt.totalQuizQuestions || 0
     const attemptTotalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
+    const attemptTotalFrontendQuestions = attempt.totalFrontendQuestions || 0
     
     let overallPercentage = 0
-    if (attemptTotalQuizQuestions > 0 && attemptTotalProgrammingQuestions > 0) {
-      // Both quiz and programming questions exist
-      overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
-    } else if (attemptTotalProgrammingQuestions > 0) {
-      // Only programming questions
-      overallPercentage = programmingPercentage
-    } else if (attemptTotalQuizQuestions > 0) {
-      // Only quiz questions
-      overallPercentage = quizPercentage
+    const totalParts = (attemptTotalQuizQuestions > 0 ? 1 : 0) + 
+                       (attemptTotalProgrammingQuestions > 0 ? 1 : 0) + 
+                       (attemptTotalFrontendQuestions > 0 ? 1 : 0)
+    
+    if (totalParts > 0) {
+      let sum = 0
+      if (attemptTotalQuizQuestions > 0) sum += quizPercentage
+      if (attemptTotalProgrammingQuestions > 0) sum += programmingPercentage
+      if (attemptTotalFrontendQuestions > 0) sum += frontendPercentage
+      overallPercentage = Math.round(sum / totalParts)
     }
 
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
@@ -1590,6 +1605,86 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
   }
 })
 
+// Save MongoDB query
+router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { attemptId } = req.params;
+    const { questionId, query, result, expectedOutput } = req.body;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const Assessment = require('../models/Assessment');
+    
+    const attempt = await AssessmentAttempt.findById(attemptId);
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' });
+    }
+
+    // Update last executed MongoDB query
+    const lastExecutedMongoDBQuery = attempt.lastExecutedMongoDBQuery || {};
+    lastExecutedMongoDBQuery[questionId] = query;
+    
+    // Calculate percentage for this question
+    const questionPercentages = attempt.questionPercentages || {};
+    const isCorrect = JSON.stringify(result) === JSON.stringify(expectedOutput);
+    questionPercentages[questionId] = isCorrect ? 100 : 0;
+    
+    // Get assessment to identify MongoDB questions
+    const assessment = await Assessment.findById(attempt.assessment).populate('mongodbPlaygroundQuestions');
+    const mongodbQuestionIds = assessment.mongodbPlaygroundQuestions.map(q => q._id.toString());
+    
+    // Calculate MongoDB percentage
+    const mongodbPercentages = Object.entries(questionPercentages)
+      .filter(([qId]) => mongodbQuestionIds.includes(qId))
+      .map(([, percentage]) => percentage);
+    
+    const mongodbPercentageSum = mongodbPercentages.reduce((sum, p) => sum + p, 0);
+    const totalMongoDBQuestions = attempt.totalMongoDBQuestions || 0;
+    const mongodbPercentage = totalMongoDBQuestions > 0
+      ? Math.round(mongodbPercentageSum / totalMongoDBQuestions)
+      : 0;
+    
+    // Calculate overall percentage
+    const programmingPercentage = attempt.programmingPercentage || 0;
+    const frontendPercentage = attempt.frontendPercentage || 0;
+    const quizPercentage = attempt.quizPercentage || 0;
+    const totalProgramming = attempt.totalProgrammingQuestions || 0;
+    const totalFrontend = attempt.totalFrontendQuestions || 0;
+    const totalQuiz = attempt.totalQuizQuestions || 0;
+    const totalMongoDB = attempt.totalMongoDBQuestions || 0;
+    
+    let overallPercentage = 0;
+    let count = 0;
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++; }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
+    if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      lastExecutedMongoDBQuery,
+      questionPercentages,
+      mongodbPercentage,
+      overallPercentage
+    });
+
+    res.json({ 
+      message: 'MongoDB query saved successfully',
+      isCorrect,
+      questionPercentage: questionPercentages[questionId] || 0,
+      mongodbPercentage,
+      overallPercentage
+    });
+  } catch (error) {
+    console.error('Error saving MongoDB query:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get total students count (public endpoint)
 router.get('/student/practice/student-count', async (req, res) => {
   try {
@@ -1611,7 +1706,7 @@ router.post('/student/change-password', validateApiKey, async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const studentId = decoded.studentId;
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {

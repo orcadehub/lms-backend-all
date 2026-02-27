@@ -24,6 +24,7 @@ const companyRoutes = require('./routes/companyRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const aptitudeQuestionRoutes = require('./routes/aptitudeQuestionRoutes');
 const quizQuestionRoutes = require('./routes/quizQuestionRoutes');
+const mongoDBPlaygroundQuestionRoutes = require('./routes/mongoDBPlaygroundQuestionRoutes');
 const studyMaterialRoutes = require('./routes/studyMaterials');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -114,6 +115,8 @@ app.use('/api/company', companyRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/aptitude-questions', aptitudeQuestionRoutes);
 app.use('/api/quiz-questions', quizQuestionRoutes);
+app.use('/api/mongodb-playground-questions', mongoDBPlaygroundQuestionRoutes);
+app.use('/api/mongodb-playground', require('./routes/mongoDBPlaygroundRoutes'));
 app.use('/api/study-materials', studyMaterialRoutes);
 
 // Debug environment variables endpoint

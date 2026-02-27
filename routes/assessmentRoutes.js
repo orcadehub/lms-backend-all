@@ -10,7 +10,8 @@ const {
   updateAssessmentTime,
   getAssessmentAttempts,
   handleStudentAction,
-  exportAssessmentResults
+  exportAssessmentResults,
+  deleteAllAttempts
 } = require('../controllers/assessmentController');
 const { auth } = require('../middleware/auth');
 
@@ -59,6 +60,9 @@ router.patch('/:id/mark-all-inprogress-resume', require('../controllers/assessme
 // PATCH /api/assessments/:id/mark-all-completed-resume - Mark all completed as resume allowed
 router.patch('/:id/mark-all-completed-resume', require('../controllers/assessmentController').markAllCompletedResume);
 
+// DELETE /api/assessments/:id/delete-all-attempts - Delete all attempts for assessment
+router.delete('/:id/delete-all-attempts', require('../controllers/assessmentController').deleteAllAttempts);
+
 // PATCH /api/assessments/:id/mark-all-inprogress-retake - Mark all in-progress as retake allowed
 router.patch('/:id/mark-all-inprogress-retake', require('../controllers/assessmentController').markAllInProgressRetake);
 
@@ -73,6 +77,12 @@ router.post('/:id/frontend-questions', require('../controllers/assessmentControl
 
 // DELETE /api/assessments/:id/frontend-questions/:questionId - Remove frontend question from assessment
 router.delete('/:id/frontend-questions/:questionId', require('../controllers/assessmentController').removeFrontendQuestion);
+
+// POST /api/assessments/:id/mongodb-questions - Add MongoDB question to assessment
+router.post('/:id/mongodb-questions', require('../controllers/assessmentController').addMongoDBQuestion);
+
+// DELETE /api/assessments/:id/mongodb-questions/:questionId - Remove MongoDB question from assessment
+router.delete('/:id/mongodb-questions/:questionId', require('../controllers/assessmentController').removeMongoDBQuestion);
 
 // PATCH /api/assessment-attempts/:attemptId/:action - Handle student actions
 router.patch('/attempts/:attemptId/:action', handleStudentAction);
