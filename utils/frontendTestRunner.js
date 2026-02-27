@@ -24,10 +24,11 @@ async function runFrontendTests(html, css, js, testFile) {
       </html>
     `;
 
-    const dom = new JSDOM(fullHtml);
+    const dom = new JSDOM(fullHtml, { runScripts: 'dangerously' });
     const { window } = dom;
     window.__HTML__ = html;
     window.__CSS__ = css;
+    window.__JS__ = js;
 
     // Execute student's JavaScript
     if (js && js.trim() !== '') {
@@ -55,8 +56,12 @@ async function runFrontendTests(html, css, js, testFile) {
       try {
         // Run beforeEach
         if (beforeEachCode) {
-          const beforeFunc = new Function('document', 'window', beforeEachCode);
-          beforeFunc(window.document, window);
+          const beforeFunc = new Function('document', 'window', 'eval', beforeEachCode);
+          beforeFunc(window.document, window, (code) => {
+            const script = window.document.createElement('script');
+            script.textContent = code;
+            window.document.body.appendChild(script);
+          });
         }
 
         // Mock expect with all methods
@@ -69,6 +74,9 @@ async function runFrontendTests(html, css, js, testFile) {
           },
           toBeGreaterThanOrEqual: (expected) => {
             if (value < expected) throw new Error(`Expected >= ${expected}, got ${value}`);
+          },
+          toContain: (expected) => {
+            if (!value || !value.toString().includes(expected)) throw new Error(`Expected to contain ${expected}`);
           }
         });
 

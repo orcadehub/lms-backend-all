@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const lessonSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  content: { type: String, required: true },
+  content: { type: String, default: 'Content coming soon...' },
   order: { type: Number, required: true }
 });
 
