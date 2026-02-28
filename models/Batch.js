@@ -30,6 +30,7 @@ const batchSchema = new mongoose.Schema({
 // Indexes for API optimization
 batchSchema.index({ tenant: 1, isActive: 1 }); // Get active batches by tenant
 batchSchema.index({ students: 1 }); // Find batches for specific student
+batchSchema.index({ tenant: 1, students: 1 }); // Student batch lookup optimization
 batchSchema.index({ name: 1, tenant: 1 }); // Find batch by name within tenant
 
 module.exports = mongoose.model('Batch', batchSchema);

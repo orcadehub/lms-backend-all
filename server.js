@@ -313,6 +313,12 @@ app.post('/api/check-assessment-access', async (req, res) => {
   }
 });
 
+// Get server time
+app.get('/api/server-time', (req, res) => {
+  const istTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  res.json({ serverTime: istTime.toISOString() });
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

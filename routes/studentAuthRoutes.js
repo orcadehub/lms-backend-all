@@ -917,7 +917,8 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     })
     .populate('questions')
     .populate('frontendQuestions')
-    .populate('quizQuestions');
+    .populate('quizQuestions')
+    .populate('mongodbPlaygroundQuestions');
 
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -926,6 +927,45 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     res.json(assessment);
   } catch (error) {
     console.error('Error fetching assessment details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get assessment basic info (without questions) - for pre-assessment details page
+router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const tenantId = req.tenantId;
+    const { assessmentId } = req.params;
+
+    const Assessment = require('../models/Assessment');
+    const assessment = await Assessment.findOne({
+      _id: assessmentId,
+      tenantId: tenantId
+    }).select('-questions -frontendQuestions -quizQuestions -mongodbPlaygroundQuestions');
+
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    // Add question counts
+    const fullAssessment = await Assessment.findById(assessmentId);
+    const assessmentInfo = assessment.toObject();
+    assessmentInfo.questionCounts = {
+      programming: fullAssessment.questions?.length || 0,
+      frontend: fullAssessment.frontendQuestions?.length || 0,
+      quiz: fullAssessment.quizQuestions?.length || 0,
+      mongodb: fullAssessment.mongodbPlaygroundQuestions?.length || 0
+    };
+
+    res.json(assessmentInfo);
+  } catch (error) {
+    console.error('Error fetching assessment info:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

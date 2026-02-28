@@ -86,7 +86,17 @@ const getAssessmentById = async (req, res) => {
       return res.status(404).json({ message: 'Assessment not found' });
     }
     
-    res.json(assessment);
+    const assessmentData = assessment.toObject();
+    const totalCoding = (assessment.questions?.length || 0) + 
+                        (assessment.frontendQuestions?.length || 0) + 
+                        (assessment.mongodbPlaygroundQuestions?.length || 0);
+    const totalQuiz = assessment.quizQuestions?.length || 0;
+    
+    assessmentData.codingQuestionCount = totalCoding;
+    assessmentData.quizQuestionCount = totalQuiz;
+    assessmentData.totalQuestionCount = totalCoding + totalQuiz;
+    
+    res.json(assessmentData);
   } catch (error) {
     console.error('Error fetching assessment:', error);
     res.status(500).json({ message: 'Error fetching assessment', error: error.message });
