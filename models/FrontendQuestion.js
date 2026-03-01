@@ -34,11 +34,15 @@ const frontendQuestionSchema = new mongoose.Schema({
     js: {
       type: String,
       default: '// Write your JavaScript here\n'
+    },
+    dataJs: {
+      type: String,
+      default: ''
     }
   },
   allowedFiles: [{
     type: String,
-    enum: ['html', 'css', 'js'],
+    enum: ['html', 'css', 'js', 'data.js'],
     default: ['html', 'css', 'js']
   }],
   expectedOutput: {

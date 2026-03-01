@@ -3,32 +3,28 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'orcadehub.llp@gmail.com',
-    pass: process.env.EMAIL_PASS || 'tdbntufiquosmakm'
+    user: 'orcadehub.llp@gmail.com',
+    pass: 'tdbntufiquosmakm'
   }
 });
 
 const sendOTPEmail = async (email, otp, name) => {
   const mailOptions = {
-    from: '"Orcadehub LMS" <orcadehub.llp@gmail.com>',
+    from: 'orcadehub.llp@gmail.com',
     to: email,
-    subject: 'Password Reset OTP',
+    subject: 'Password Reset OTP - Orcadehub LMS',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0;">Password Reset Request</h1>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e293b;">Password Reset Request</h2>
+        <p>Hi ${name},</p>
+        <p>You requested to reset your password. Use the OTP below to reset your password:</p>
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+          <h1 style="color: #6a0dad; margin: 0; font-size: 32px; letter-spacing: 4px;">${otp}</h1>
         </div>
-        <div style="background-color: white; padding: 30px; border-radius: 0 0 10px 10px;">
-          <p style="font-size: 16px; color: #333;">Hi ${name || 'User'},</p>
-          <p style="font-size: 16px; color: #333;">You requested to reset your password. Use the OTP below to proceed:</p>
-          <div style="background-color: #f0f0f0; padding: 20px; text-align: center; margin: 30px 0; border-radius: 8px;">
-            <h2 style="color: #667eea; font-size: 36px; letter-spacing: 8px; margin: 0;">${otp}</h2>
-          </div>
-          <p style="font-size: 14px; color: #666;">This OTP is valid for 10 minutes.</p>
-          <p style="font-size: 14px; color: #666;">If you didn't request this, please ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© ${new Date().getFullYear()} Orcadehub Innovations LLP. All rights reserved.</p>
-        </div>
+        <p>This OTP will expire in 10 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #64748b; font-size: 12px;">© ${new Date().getFullYear()} Orcadehub Innovations LLP. All rights reserved.</p>
       </div>
     `
   };
