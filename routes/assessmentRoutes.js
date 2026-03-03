@@ -11,7 +11,9 @@ const {
   getAssessmentAttempts,
   handleStudentAction,
   exportAssessmentResults,
-  deleteAllAttempts
+  deleteAllAttempts,
+  addProgrammingQuestion,
+  removeProgrammingQuestion
 } = require('../controllers/assessmentController');
 const { auth } = require('../middleware/auth');
 
@@ -83,6 +85,12 @@ router.post('/:id/mongodb-questions', require('../controllers/assessmentControll
 
 // DELETE /api/assessments/:id/mongodb-questions/:questionId - Remove MongoDB question from assessment
 router.delete('/:id/mongodb-questions/:questionId', require('../controllers/assessmentController').removeMongoDBQuestion);
+
+// POST /api/assessments/:id/programming-questions - Add programming question to assessment
+router.post('/:id/programming-questions', addProgrammingQuestion);
+
+// DELETE /api/assessments/:id/programming-questions/:questionId - Remove programming question from assessment
+router.delete('/:id/programming-questions/:questionId', removeProgrammingQuestion);
 
 // PATCH /api/assessment-attempts/:attemptId/:action - Handle student actions
 router.patch('/attempts/:attemptId/:action', handleStudentAction);

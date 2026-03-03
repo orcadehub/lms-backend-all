@@ -806,6 +806,55 @@ const deleteAllAttempts = async (req, res) => {
   }
 };
 
+// Add programming question to assessment
+const addProgrammingQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questionId } = req.body;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (!assessment.questions) {
+      assessment.questions = [];
+    }
+    
+    if (!assessment.questions.includes(questionId)) {
+      assessment.questions.push(questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('questions');
+    res.json({ message: 'Programming question added successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove programming question from assessment
+const removeProgrammingQuestion = async (req, res) => {
+  try {
+    const { id, questionId } = req.params;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (assessment.questions) {
+      assessment.questions = assessment.questions.filter(q => q.toString() !== questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('questions');
+    res.json({ message: 'Programming question removed successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -822,6 +871,8 @@ module.exports = {
   removeQuizQuestion,
   addFrontendQuestion,
   removeFrontendQuestion,
+  addProgrammingQuestion,
+  removeProgrammingQuestion,
   addMongoDBQuestion,
   removeMongoDBQuestion,
   markAllInProgressCompleted,
