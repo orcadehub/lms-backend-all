@@ -1802,14 +1802,22 @@ router.post('/student/forgot-password', validateApiKey, async (req, res) => {
     student.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
     await student.save();
 
-    // Send OTP email
-    const { sendOTPEmail } = require('../utils/emailService');
-    await sendOTPEmail(student.email, otp, student.name);
-
-    res.json({ message: 'OTP sent to your email' });
+    // Send OTP email with error handling
+    try {
+      const { sendOTPEmail } = require('../utils/emailService');
+      await sendOTPEmail(student.email, otp, student.name);
+      res.json({ message: 'OTP sent to your email' });
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      // OTP is saved, so return success even if email fails
+      res.json({ 
+        message: 'OTP generated successfully. If email delivery fails, contact support.',
+        otp: process.env.NODE_ENV === 'development' ? otp : undefined
+      });
+    }
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    res.status(500).json({ message: 'Failed to send OTP' });
+    console.error('Error in forgot-password:', error);
+    res.status(500).json({ message: 'Failed to process request', error: error.message });
   }
 });
 
