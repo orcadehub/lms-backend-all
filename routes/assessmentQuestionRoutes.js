@@ -6,7 +6,7 @@ const { checkPermission } = require('../middleware/permissions');
 const router = express.Router();
 
 // Get questions by type (public for practice)
-router.get('/', auth, assessmentQuestionController.getQuestionsByType);
+router.get('/', assessmentQuestionController.getQuestionsByType);
 
 // Create new question
 router.post('/', auth, checkPermission('create_quizzes'), assessmentQuestionController.createQuestion);
