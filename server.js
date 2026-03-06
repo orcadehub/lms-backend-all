@@ -26,6 +26,8 @@ const aptitudeQuestionRoutes = require('./routes/aptitudeQuestionRoutes');
 const quizQuestionRoutes = require('./routes/quizQuestionRoutes');
 const mongoDBPlaygroundQuestionRoutes = require('./routes/mongoDBPlaygroundQuestionRoutes');
 const studyMaterialRoutes = require('./routes/studyMaterials');
+const labRoutes = require('./routes/labRoutes');
+const aiMockRoutes = require('./routes/aiMockRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -118,6 +120,8 @@ app.use('/api/quiz-questions', quizQuestionRoutes);
 app.use('/api/mongodb-playground-questions', mongoDBPlaygroundQuestionRoutes);
 app.use('/api/mongodb-playground', require('./routes/mongoDBPlaygroundRoutes'));
 app.use('/api/study-materials', studyMaterialRoutes);
+app.use('/api/labs', labRoutes);
+app.use('/api/ai-mock', aiMockRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {

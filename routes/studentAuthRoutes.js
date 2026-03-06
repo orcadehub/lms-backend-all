@@ -6,6 +6,21 @@ const { validateApiKey } = require('../middleware/apiKeyAuth');
 
 const router = express.Router();
 
+// Helper function to sort arrays deeply for comparison
+const sortArrayDeep = (arr) => {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map(item => {
+    if (typeof item === 'object' && item !== null) {
+      const sorted = {};
+      Object.keys(item).sort().forEach(key => {
+        sorted[key] = sortArrayDeep(item[key]);
+      });
+      return sorted;
+    }
+    return item;
+  }).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+};
+
 // Student login with tenant validation
 router.post('/student/login', validateApiKey, async (req, res) => {
   try {
@@ -1670,19 +1685,20 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
     
     // Calculate percentage for this question
     const questionPercentages = attempt.questionPercentages || {};
-    const isCorrect = JSON.stringify(result) === JSON.stringify(expectedOutput);
+    const sortedResult = sortArrayDeep(result);
+    const sortedExpected = sortArrayDeep(expectedOutput);
+    const isCorrect = JSON.stringify(sortedResult) === JSON.stringify(sortedExpected);
     questionPercentages[questionId] = isCorrect ? 100 : 0;
     
     // Get assessment to identify MongoDB questions
     const assessment = await Assessment.findById(attempt.assessment).populate('mongodbPlaygroundQuestions');
     const mongodbQuestionIds = assessment.mongodbPlaygroundQuestions.map(q => q._id.toString());
     
-    // Calculate MongoDB percentage
-    const mongodbPercentages = Object.entries(questionPercentages)
+    // Calculate MongoDB percentage (sum of all MongoDB question percentages / total MongoDB questions)
+    const mongodbPercentageSum = Object.entries(questionPercentages)
       .filter(([qId]) => mongodbQuestionIds.includes(qId))
-      .map(([, percentage]) => percentage);
+      .reduce((sum, [, percentage]) => sum + percentage, 0);
     
-    const mongodbPercentageSum = mongodbPercentages.reduce((sum, p) => sum + p, 0);
     const totalMongoDBQuestions = attempt.totalMongoDBQuestions || 0;
     const mongodbPercentage = totalMongoDBQuestions > 0
       ? Math.round(mongodbPercentageSum / totalMongoDBQuestions)
@@ -1780,6 +1796,8 @@ router.post('/student/forgot-password', validateApiKey, async (req, res) => {
     const { email } = req.body;
     const tenantId = req.tenantId;
 
+    console.log('Forgot password request for:', email, 'Tenant:', tenantId);
+
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
     }
@@ -1791,8 +1809,11 @@ router.post('/student/forgot-password', validateApiKey, async (req, res) => {
     });
 
     if (!student) {
+      console.log('Student not found for email:', email);
       return res.status(404).json({ message: 'Student not found' });
     }
+
+    console.log('Student found:', student._id);
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1802,19 +1823,23 @@ router.post('/student/forgot-password', validateApiKey, async (req, res) => {
     student.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
     await student.save();
 
-    // Send OTP email with error handling
+    console.log('OTP saved successfully');
+
+    // Try to send email, but don't fail if it doesn't work
+    let emailSent = false;
     try {
       const { sendOTPEmail } = require('../utils/emailService');
       await sendOTPEmail(student.email, otp, student.name);
-      res.json({ message: 'OTP sent to your email' });
+      emailSent = true;
+      console.log('Email sent successfully');
     } catch (emailError) {
-      console.error('Email sending failed:', emailError);
-      // OTP is saved, so return success even if email fails
-      res.json({ 
-        message: 'OTP generated successfully. If email delivery fails, contact support.',
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined
-      });
+      console.error('Email sending failed:', emailError.message);
     }
+
+    res.json({ 
+      message: emailSent ? 'OTP sent to your email' : 'OTP generated. Please contact support if you did not receive the email.',
+      success: true
+    });
   } catch (error) {
     console.error('Error in forgot-password:', error);
     res.status(500).json({ message: 'Failed to process request', error: error.message });
