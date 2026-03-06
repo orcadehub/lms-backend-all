@@ -3,7 +3,7 @@ const router = express.Router();
 const labController = require('../controllers/labController');
 const { auth } = require('../middleware/auth');
 
-router.get('/', auth, labController.getAllLabs);
+router.get('/', labController.getAllLabs);
 router.post('/save-progress', auth, labController.saveProgress);
 router.post('/submit', auth, labController.submitLab);
 router.post('/execute-command', auth, labController.executeCommand);
