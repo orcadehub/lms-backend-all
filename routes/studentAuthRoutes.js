@@ -1669,7 +1669,7 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
     }
 
     const { attemptId } = req.params;
-    const { questionId, query, result, expectedOutput } = req.body;
+    const { questionId, query, result, expectedOutput, isCorrect } = req.body;
 
     const AssessmentAttempt = require('../models/AssessmentAttempt');
     const Assessment = require('../models/Assessment');
@@ -1685,10 +1685,14 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
     
     // Calculate percentage for this question
     const questionPercentages = attempt.questionPercentages || {};
-    const sortedResult = sortArrayDeep(result);
-    const sortedExpected = sortArrayDeep(expectedOutput);
-    const isCorrect = JSON.stringify(sortedResult) === JSON.stringify(sortedExpected);
-    questionPercentages[questionId] = isCorrect ? 100 : 0;
+    // Use isCorrect from frontend if provided, otherwise compare
+    let correct = isCorrect;
+    if (correct === undefined) {
+      const sortedResult = sortArrayDeep(result);
+      const sortedExpected = sortArrayDeep(expectedOutput);
+      correct = JSON.stringify(sortedResult) === JSON.stringify(sortedExpected);
+    }
+    questionPercentages[questionId] = correct ? 100 : 0;
     
     // Get assessment to identify MongoDB questions
     const assessment = await Assessment.findById(attempt.assessment).populate('mongodbPlaygroundQuestions');
@@ -1730,7 +1734,7 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
 
     res.json({ 
       message: 'MongoDB query saved successfully',
-      isCorrect,
+      isCorrect: correct,
       questionPercentage: questionPercentages[questionId] || 0,
       mongodbPercentage,
       overallPercentage
