@@ -161,16 +161,36 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
             if (value !== expected) throw new Error(`Expected ${expected}, got ${value}`);
           },
           toBeGreaterThan: (expected) => {
-            if (value <= expected) throw new Error(`Expected > ${expected}, got ${value}`);
+            const numValue = Number(value);
+            const numExpected = Number(expected);
+            if (isNaN(numValue) || isNaN(numExpected)) {
+              throw new Error(`Cannot compare non-numeric values: ${value} > ${expected}`);
+            }
+            if (numValue <= numExpected) throw new Error(`Expected > ${expected}, got ${value}`);
           },
           toBeGreaterThanOrEqual: (expected) => {
-            if (value < expected) throw new Error(`Expected >= ${expected}, got ${value}`);
+            const numValue = Number(value);
+            const numExpected = Number(expected);
+            if (isNaN(numValue) || isNaN(numExpected)) {
+              throw new Error(`Cannot compare non-numeric values: ${value} >= ${expected}`);
+            }
+            if (numValue < numExpected) throw new Error(`Expected >= ${expected}, got ${value}`);
           },
           toBeLessThan: (expected) => {
-            if (value >= expected) throw new Error(`Expected < ${expected}, got ${value}`);
+            const numValue = Number(value);
+            const numExpected = Number(expected);
+            if (isNaN(numValue) || isNaN(numExpected)) {
+              throw new Error(`Cannot compare non-numeric values: ${value} < ${expected}`);
+            }
+            if (numValue >= numExpected) throw new Error(`Expected < ${expected}, got ${value}`);
           },
           toBeLessThanOrEqual: (expected) => {
-            if (value > expected) throw new Error(`Expected <= ${expected}, got ${value}`);
+            const numValue = Number(value);
+            const numExpected = Number(expected);
+            if (isNaN(numValue) || isNaN(numExpected)) {
+              throw new Error(`Cannot compare non-numeric values: ${value} <= ${expected}`);
+            }
+            if (numValue > numExpected) throw new Error(`Expected <= ${expected}, got ${value}`);
           },
           toEqual: (expected) => {
             if (JSON.stringify(value) !== JSON.stringify(expected)) {
