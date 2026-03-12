@@ -10,6 +10,17 @@ const {
 const { auth } = require('../middleware/auth');
 const { runFrontendTests } = require('../utils/frontendTestRunner');
 
+// Public endpoint for testing (no auth required)
+router.post('/run-tests-public', async (req, res) => {
+  try {
+    const { html, css, js, testFile, dataJs } = req.body;
+    const results = await runFrontendTests(html, css, js, testFile, dataJs);
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.use(auth);
 
 router.post('/', createFrontendQuestion);
