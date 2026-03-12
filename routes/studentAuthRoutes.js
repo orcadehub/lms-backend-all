@@ -896,14 +896,16 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
     const assessments = await Assessment.find({
       tenantId: tenantId,
       $or: [
-        { batches: { $size: 0 } },
+        { batches: [] },
         { batches: { $in: batchIds } }
       ]
     }).sort({ createdAt: -1 });
 
     const populatedAssessments = await Assessment.populate(assessments, [
       { path: 'questions' },
-      { path: 'quizQuestions' }
+      { path: 'quizQuestions' },
+      { path: 'frontendQuestions' },
+      { path: 'mongodbPlaygroundQuestions' }
     ]);
 
     res.json(populatedAssessments);

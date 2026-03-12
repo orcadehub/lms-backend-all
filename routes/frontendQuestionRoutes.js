@@ -20,8 +20,8 @@ router.delete('/:id', deleteFrontendQuestion);
 
 router.post('/run-tests', async (req, res) => {
   try {
-    const { html, css, js, testFile } = req.body;
-    const results = await runFrontendTests(html, css, js, testFile);
+    const { html, css, js, testFile, dataJs } = req.body;
+    const results = await runFrontendTests(html, css, js, testFile, dataJs);
     res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
