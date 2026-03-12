@@ -24,6 +24,9 @@ function sanitizeCode(code) {
 }
 
 function extractTests(testFile) {
+  // Decode HTML entities in test file first
+  testFile = decodeHtmlEntities(testFile);
+  
   const tests = [];
   let currentPos = 0;
   
