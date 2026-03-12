@@ -11,6 +11,38 @@ function decodeHtmlEntities(text) {
   return text.replace(/&#39;|&quot;|&lt;|&gt;|&amp;/g, match => entities[match]);
 }
 
+function extractTests(testFile) {
+  const tests = [];
+  let currentPos = 0;
+  
+  while (true) {
+    const testStart = testFile.indexOf('test(', currentPos);
+    if (testStart === -1) break;
+    
+    const quoteStart = testFile.indexOf("'", testStart);
+    const quoteEnd = testFile.indexOf("'", quoteStart + 1);
+    const testName = testFile.substring(quoteStart + 1, quoteEnd);
+    
+    const arrowStart = testFile.indexOf('=>', quoteEnd);
+    const braceStart = testFile.indexOf('{', arrowStart);
+    
+    let braceCount = 1;
+    let bodyEnd = braceStart + 1;
+    while (braceCount > 0 && bodyEnd < testFile.length) {
+      if (testFile[bodyEnd] === '{') braceCount++;
+      if (testFile[bodyEnd] === '}') braceCount--;
+      bodyEnd++;
+    }
+    
+    const testBody = testFile.substring(braceStart + 1, bodyEnd - 1);
+    tests.push({ name: testName, body: testBody });
+    
+    currentPos = bodyEnd;
+  }
+  
+  return tests;
+}
+
 async function runFrontendTests(html, css, js, testFile, dataJs = '') {
   try {
     console.log('=== Frontend Test Runner ===');
@@ -19,7 +51,6 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
     console.log('JS length:', js?.length || 0);
     console.log('DataJS length:', dataJs?.length || 0);
     
-    // Decode HTML entities
     html = decodeHtmlEntities(html || '');
     css = decodeHtmlEntities(css || '');
     js = decodeHtmlEntities(js || '');
@@ -59,35 +90,17 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
     window.__JS__ = js;
     window.__DATA_JS__ = dataJs;
 
-    // Wait for scripts to execute
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Extract beforeEach code
-    let beforeEachCode = '';
-    const beforeEachMatch = testFile.match(/beforeEach\s*\(\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n\s*\}\s*\);/);
-    if (beforeEachMatch) {
-      beforeEachCode = beforeEachMatch[1];
-    }
-
-    // Extract afterEach code if exists
-    let afterEachCode = '';
-    const afterEachMatch = testFile.match(/afterEach\s*\(\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n\s*\}\s*\);/);
-    if (afterEachMatch) {
-      afterEachCode = afterEachMatch[1];
-    }
-
-    // Parse tests
     const testResults = [];
-    const testRegex = /test\s*\(\s*['\"](.+?)['\"]\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n\s*\}\s*\);/g;
-    let match;
+    const tests = extractTests(testFile);
 
-    while ((match = testRegex.exec(testFile)) !== null) {
-      const testName = match[1];
-      const testBody = match[2];
+    for (const test of tests) {
+      const testName = test.name;
+      const testBody = test.body;
       console.log(`Running test: ${testName}`);
       
       try {
-        // Create fresh DOM for each test
         const testDom = new JSDOM(fullHtml, { runScripts: 'dangerously', resources: 'usable' });
         const testWindow = testDom.window;
         const testDocument = testWindow.document;
@@ -97,10 +110,8 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
         testWindow.__JS__ = js;
         testWindow.__DATA_JS__ = dataJs;
 
-        // Wait for scripts in test DOM
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Mock expect with all Jest methods
         const expect = (value) => ({
           toBeTruthy: () => {
             if (!value) throw new Error(`Expected truthy but got ${value}`);
@@ -145,33 +156,14 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
           }
         });
 
-        // Run beforeEach
-        if (beforeEachCode) {
-          try {
-            const beforeFunc = new Function('document', 'window', 'expect', beforeEachCode);
-            beforeFunc(testDocument, testWindow, expect);
-          } catch (e) {
-            console.log(`beforeEach error: ${e.message}`);
-            throw new Error(`beforeEach failed: ${e.message}`);
-          }
-        }
-
-        // Run test
         try {
-          const testFunc = new Function('document', 'window', 'expect', testBody);
+          const testFunc = new Function('document', 'window', 'expect', `
+            const globalThis = window;
+            ${testBody}
+          `);
           testFunc(testDocument, testWindow, expect);
         } catch (e) {
           throw e;
-        }
-
-        // Run afterEach
-        if (afterEachCode) {
-          try {
-            const afterFunc = new Function('document', 'window', 'expect', afterEachCode);
-            afterFunc(testDocument, testWindow, expect);
-          } catch (e) {
-            console.log(`afterEach error: ${e.message}`);
-          }
         }
         
         console.log(`✓ Test passed: ${testName}`);

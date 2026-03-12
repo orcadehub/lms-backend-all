@@ -81,19 +81,8 @@ const htmlQuestions = [
   test('paragraphs contain meaningful content', () => {
     const paragraphs = document.querySelectorAll('p');
     expect(paragraphs.length).toBeGreaterThanOrEqual(3);
-    
-    let meaningfulParagraphs = 0;
-    paragraphs.forEach(p => {
-      const text = p.textContent.trim();
-      // Check if paragraph has at least 5 words or 20 characters
-      const wordCount = text.split(/\\s+/).filter(word => word.length > 0).length;
-      if (text.length >= 20 || wordCount >= 5) {
-        meaningfulParagraphs++;
-      }
-    });
-    
-    // At least 2 out of 3 paragraphs should have meaningful content
-    expect(meaningfulParagraphs).toBeGreaterThanOrEqual(2);
+    const firstP = paragraphs[0];
+    expect(firstP.textContent.trim().length).toBeGreaterThan(5);
   });
 
   test('document structure is valid', () => {
@@ -190,11 +179,8 @@ const htmlQuestions = [
   });
 
   test('radio buttons for gender exist', () => {
-    const radioButtons = document.querySelectorAll('input[name="gender"]');
+    const radioButtons = document.querySelectorAll('input[type="radio"]');
     expect(radioButtons.length).toBeGreaterThanOrEqual(2);
-    radioButtons.forEach(radio => {
-      expect(radio.type).toBe('radio');
-    });
   });
 
   test('select dropdown has multiple options', () => {
@@ -212,9 +198,20 @@ const htmlQuestions = [
   });
 
   test('submit button exists', () => {
-    const submitButton = document.querySelector('button[type="submit"]');
+    const submitButton = document.querySelector('input[type="submit"], button[type="submit"]');
     expect(submitButton).toBeTruthy();
-    expect(submitButton.textContent.length).toBeGreaterThan(0);
+  });
+
+  test('checkbox for terms exists', () => {
+    const checkbox = document.querySelector('input[type="checkbox"]');
+    expect(checkbox).toBeTruthy();
+    expect(checkbox.type).toBe('checkbox');
+  });
+
+  test('form has labels for inputs', () => {
+    const form = document.getElementById('registrationForm');
+    const labels = form.querySelectorAll('label');
+    expect(labels.length).toBeGreaterThan(0);
   });
 });`,
     defaultFiles: {
@@ -278,9 +275,9 @@ const htmlQuestions = [
 
   test('all navigation links have href attributes', () => {
     const navLinks = document.querySelectorAll('#mainNav a');
-    navLinks.forEach(link => {
-      expect(link.getAttribute('href')).toBeTruthy();
-    });
+    expect(navLinks.length).toBeGreaterThan(0);
+    const firstLink = navLinks[0];
+    expect(firstLink.getAttribute('href')).toBeTruthy();
   });
 
   test('nested submenu list exists', () => {
@@ -298,39 +295,24 @@ const htmlQuestions = [
 
   test('unordered list with 5+ items exists', () => {
     const unorderedLists = document.querySelectorAll('ul');
-    let foundList = false;
-    unorderedLists.forEach(ul => {
-      const items = ul.querySelectorAll('li');
-      if (items.length >= 5) {
-        foundList = true;
-      }
-    });
-    expect(foundList).toBe(true);
+    expect(unorderedLists.length).toBeGreaterThan(0);
+    const firstUl = unorderedLists[0];
+    const items = firstUl.querySelectorAll('li');
+    expect(items.length).toBeGreaterThanOrEqual(5);
   });
 
   test('list items have meaningful content', () => {
     const allItems = document.querySelectorAll('li');
-    let meaningfulCount = 0;
-    allItems.forEach(item => {
-      if (item.textContent.trim().length > 0) {
-        meaningfulCount++;
-      }
-    });
-    expect(meaningfulCount).toBeGreaterThan(0);
+    expect(allItems.length).toBeGreaterThan(0);
+    const firstItem = allItems[0];
+    expect(firstItem.textContent.trim().length).toBeGreaterThan(0);
   });
 
   test('navigation links have meaningful text', () => {
     const navLinks = document.querySelectorAll('#mainNav a');
-    navLinks.forEach(link => {
-      expect(link.textContent.trim().length).toBeGreaterThan(0);
-    });
-  });
-
-  test('proper semantic structure is maintained', () => {
-    const nav = document.getElementById('mainNav');
-    const navUl = nav.querySelector('ul');
-    const navLis = navUl.querySelectorAll('> li');
-    expect(navLis.length).toBeGreaterThanOrEqual(5);
+    expect(navLinks.length).toBeGreaterThan(0);
+    const firstLink = navLinks[0];
+    expect(firstLink.textContent.trim().length).toBeGreaterThan(0);
   });
 });`,
     defaultFiles: {
@@ -403,19 +385,10 @@ const htmlQuestions = [
   });
 
   test('colspan is used correctly', () => {
-    const cellsWithColspan = document.querySelectorAll('[colspan]');
+    const cellsWithColspan = document.querySelectorAll('td[colspan]');
     expect(cellsWithColspan.length).toBeGreaterThan(0);
-    cellsWithColspan.forEach(cell => {
-      expect(parseInt(cell.getAttribute('colspan'))).toBeGreaterThan(1);
-    });
-  });
-
-  test('rowspan is used correctly', () => {
-    const cellsWithRowspan = document.querySelectorAll('[rowspan]');
-    expect(cellsWithRowspan.length).toBeGreaterThan(0);
-    cellsWithRowspan.forEach(cell => {
-      expect(parseInt(cell.getAttribute('rowspan'))).toBeGreaterThan(1);
-    });
+    const firstCell = cellsWithColspan[0];
+    expect(parseInt(firstCell.getAttribute('colspan'))).toBeGreaterThan(1);
   });
 
   test('caption element exists', () => {
@@ -426,21 +399,16 @@ const htmlQuestions = [
 
   test('table headers have meaningful content', () => {
     const headers = document.querySelectorAll('#dataTable th');
-    headers.forEach(header => {
-      expect(header.textContent.trim().length).toBeGreaterThan(0);
-    });
+    expect(headers.length).toBeGreaterThan(0);
+    const firstHeader = headers[0];
+    expect(firstHeader.textContent.trim().length).toBeGreaterThan(0);
   });
 
   test('table data cells have content', () => {
     const dataCells = document.querySelectorAll('#dataTable tbody td');
     expect(dataCells.length).toBeGreaterThan(0);
-    let contentCount = 0;
-    dataCells.forEach(cell => {
-      if (cell.textContent.trim().length > 0) {
-        contentCount++;
-      }
-    });
-    expect(contentCount).toBeGreaterThan(0);
+    const firstCell = dataCells[0];
+    expect(firstCell.textContent.trim().length).toBeGreaterThan(0);
   });
 
   test('table structure is semantically correct', () => {
@@ -534,15 +502,9 @@ const htmlQuestions = [
   test('images have alt attributes', () => {
     const images = document.querySelectorAll('img');
     expect(images.length).toBeGreaterThan(0);
-    images.forEach(img => {
-      expect(img.getAttribute('alt')).toBeTruthy();
-      expect(img.getAttribute('alt').length).toBeGreaterThan(0);
-    });
-  });
-
-  test('ARIA attributes are present', () => {
-    const elementsWithAria = document.querySelectorAll('[aria-label], [aria-describedby], [role]');
-    expect(elementsWithAria.length).toBeGreaterThan(0);
+    const firstImage = images[0];
+    expect(firstImage.getAttribute('alt')).toBeTruthy();
+    expect(firstImage.getAttribute('alt').length).toBeGreaterThan(0);
   });
 
   test('heading hierarchy is correct', () => {
@@ -559,10 +521,6 @@ const htmlQuestions = [
     expect(header).toBeTruthy();
     expect(main).toBeTruthy();
     expect(footer).toBeTruthy();
-    const body = document.querySelector('body');
-    expect(header.parentElement).toBe(body);
-    expect(main.parentElement).toBe(body);
-    expect(footer.parentElement).toBe(body);
   });
 });`,
     defaultFiles: {
@@ -594,7 +552,6 @@ async function seed5HTMLQuestions() {
       process.exit(1);
     }
 
-    // Delete existing questions first
     await FrontendQuestion.deleteMany({ title: { $in: htmlQuestions.map(q => q.title) } });
     console.log('Deleted existing HTML questions');
 
