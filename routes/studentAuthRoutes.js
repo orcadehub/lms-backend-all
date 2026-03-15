@@ -1519,7 +1519,7 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
     const questionPercentages = attempt.questionPercentages || {}
     
     if (testResults && testResults.tests && testResults.tests.length > 0) {
-      const passedTests = testResults.tests.filter(test => test.status === 'passed').length
+      const passedTests = testResults.tests.filter(test => test.status === 'passed' || test.passed === true).length
       const totalTests = testResults.tests.length
       const percentage = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
       questionPercentages[questionId] = percentage
@@ -1535,7 +1535,7 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
       .map(([, percentage]) => percentage)
     
     const frontendPercentageSum = frontendPercentages.reduce((sum, p) => sum + p, 0)
-    const totalFrontendQuestions = attempt.totalFrontendQuestions || 0
+    const totalFrontendQuestions = assessment.frontendQuestions.length || attempt.totalFrontendQuestions || frontendPercentages.length
     const frontendPercentage = totalFrontendQuestions > 0
       ? Math.round(frontendPercentageSum / totalFrontendQuestions)
       : 0
