@@ -1545,7 +1545,7 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
     const quizPercentage = attempt.quizPercentage || 0
     const totalProgramming = attempt.totalProgrammingQuestions || 0
     const totalQuiz = attempt.totalQuizQuestions || 0
-    const totalFrontend = attempt.totalFrontendQuestions || 0
+    const totalFrontend = totalFrontendQuestions // use assessment value, not attempt field
     
     let overallPercentage = 0
     let count = 0
@@ -1558,7 +1558,8 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
       lastExecutedFrontendCode,
       questionPercentages,
       frontendPercentage,
-      overallPercentage
+      overallPercentage,
+      totalFrontendQuestions: totalFrontendQuestions
     })
 
     res.json({ 

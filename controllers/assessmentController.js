@@ -274,7 +274,12 @@ const getAssessmentAttempts = async (req, res) => {
       timeUsedSeconds: attempt.timeUsedSeconds,
       tabSwitchCount: attempt.tabSwitchCount || 0,
       fullscreenExitCount: attempt.fullscreenExitCount || 0,
-      submissionReason: attempt.submissionReason
+      submissionReason: attempt.submissionReason,
+      quizPercentage: attempt.quizPercentage || 0,
+      programmingPercentage: attempt.programmingPercentage || 0,
+      frontendPercentage: attempt.frontendPercentage || 0,
+      mongodbPercentage: attempt.mongodbPercentage || 0,
+      overallPercentage: attempt.overallPercentage || 0
     }));
     
     res.json(formattedAttempts);
