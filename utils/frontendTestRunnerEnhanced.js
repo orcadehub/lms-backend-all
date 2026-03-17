@@ -76,6 +76,18 @@ async function runFrontendTests(html, css, js, testFile, dataJs = '') {
     css = sanitizeCode(decodeHtmlEntities(css || ''));
     js = sanitizeCode(decodeHtmlEntities(js || ''));
     dataJs = sanitizeCode(decodeHtmlEntities(dataJs || ''));
+
+    // Guard: JS file must have actual implementation code
+    if (!js || js.trim().length === 0) {
+      console.log('JS file is empty — failing all tests');
+      const tests = extractTests(decodeHtmlEntities(testFile || ''));
+      return {
+        passed: 0,
+        failed: tests.length,
+        total: tests.length,
+        tests: tests.map(t => ({ name: t.name, status: 'failed', error: 'JS file is empty. Please write your solution in the JS file.' }))
+      };
+    }
     
     if (!testFile || testFile.trim() === '') {
       console.log('Missing test file');

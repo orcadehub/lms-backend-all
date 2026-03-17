@@ -7,18 +7,21 @@ const { validateApiKey } = require('../middleware/apiKeyAuth');
 const router = express.Router();
 
 // Helper function to sort arrays deeply for comparison
-const sortArrayDeep = (arr) => {
-  if (!Array.isArray(arr)) return arr;
-  return arr.map(item => {
-    if (typeof item === 'object' && item !== null) {
-      const sorted = {};
-      Object.keys(item).sort().forEach(key => {
-        sorted[key] = sortArrayDeep(item[key]);
-      });
-      return sorted;
-    }
-    return item;
-  }).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+const sortArrayDeep = (data) => {
+  if (Array.isArray(data)) {
+    return data.map(sortArrayDeep).sort((a, b) => {
+      const sA = JSON.stringify(a);
+      const sB = JSON.stringify(b);
+      return sA.localeCompare(sB);
+    });
+  } else if (data !== null && typeof data === 'object') {
+    const sorted = {};
+    Object.keys(data).sort().forEach(key => {
+      sorted[key] = sortArrayDeep(data[key]);
+    });
+    return sorted;
+  }
+  return data;
 };
 
 // Student login with tenant validation
@@ -908,7 +911,25 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
       { path: 'mongodbPlaygroundQuestions' }
     ]);
 
-    res.json(populatedAssessments);
+    const assessmentsWithCounts = populatedAssessments.map(assessment => {
+      const assessmentData = assessment.toObject();
+      const questionCounts = {
+        programming: assessment.questions?.length || 0,
+        frontend: assessment.frontendQuestions?.length || 0,
+        quiz: assessment.quizQuestions?.length || 0,
+        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+      };
+      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+      
+      assessmentData.questionCounts = questionCounts;
+      assessmentData.codingQuestionCount = questionCounts.coding;
+      assessmentData.quizQuestionCount = questionCounts.quiz;
+      assessmentData.totalQuestionCount = assessmentData.codingQuestionCount + questionCounts.quiz;
+      
+      return assessmentData;
+    });
+
+    res.json(assessmentsWithCounts);
   } catch (error) {
     console.error('Error fetching student assessments:', error);
     res.status(500).json({ message: 'Server error' });
@@ -941,7 +962,21 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
       return res.status(404).json({ message: 'Assessment not found' });
     }
 
-    res.json(assessment);
+    const assessmentData = assessment.toObject();
+    const questionCounts = {
+      programming: assessment.questions?.length || 0,
+      frontend: assessment.frontendQuestions?.length || 0,
+      quiz: assessment.quizQuestions?.length || 0,
+      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+    };
+    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+    
+    assessmentData.questionCounts = questionCounts;
+    assessmentData.codingQuestionCount = questionCounts.coding;
+    assessmentData.quizQuestionCount = questionCounts.quiz;
+    assessmentData.totalQuestionCount = assessmentData.codingQuestionCount + questionCounts.quiz;
+
+    res.json(assessmentData);
   } catch (error) {
     console.error('Error fetching assessment details:', error);
     res.status(500).json({ message: 'Server error' });

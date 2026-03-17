@@ -32,17 +32,7 @@ const jsQuestions = [
       'Filtering works in real-time',
       'User count is displayed'
     ],
-    jestTestFile: `describe('DOM Manipulation - Render User List', () => {
-  beforeEach(() => {
-    document.body.innerHTML = \`
-      <div id="userContainer"></div>
-      <input type="text" id="filterInput" placeholder="Search users..." />
-      <div id="userCount">Total Users: 0</div>
-    \`;
-    eval(window.__JS__);
-  });
-
-  test('user container exists', () => {
+    jestTestFile: `test('user container exists', () => {
     const container = document.getElementById('userContainer');
     expect(container).toBeTruthy();
   });
@@ -98,6 +88,8 @@ const jsQuestions = [
   });
 
   test('data structure is correct', () => {
+    const renderedUsers = document.querySelectorAll('.user-card');
+    expect(renderedUsers.length).toBeGreaterThan(0);
     expect(typeof users).toBe('object');
     expect(Array.isArray(users)).toBe(true);
     if (users.length > 0) {
@@ -108,8 +100,7 @@ const jsQuestions = [
 
   test('users array has data', () => {
     expect(users.length).toBeGreaterThan(0);
-  });
-});`,
+  });`,
     defaultFiles: {
       html: '',
       css: '',
@@ -160,21 +151,7 @@ const jsQuestions = [
       'Total price is calculated',
       'Cart count updates'
     ],
-    jestTestFile: `describe('DOM Manipulation - Product Catalog with Cart', () => {
-  beforeEach(() => {
-    document.body.innerHTML = \`
-      <div id="productContainer"></div>
-      <div id="cartContainer">
-        <h2>Shopping Cart</h2>
-        <div id="cartItems"></div>
-        <div id="cartTotal">Total: $0.00</div>
-        <div id="cartCount">Items: 0</div>
-      </div>
-    \`;
-    eval(window.__JS__);
-  });
-
-  test('product container exists', () => {
+    jestTestFile: `test('product container exists', () => {
     const container = document.getElementById('productContainer');
     expect(container).toBeTruthy();
   });
@@ -223,10 +200,12 @@ const jsQuestions = [
 
   test('remove from cart button exists', () => {
     const removeButtons = document.querySelectorAll('.remove-from-cart-btn');
-    expect(removeButtons.length).toBeGreaterThanOrEqual(0);
+    expect(removeButtons.length).toBeGreaterThan(0);
   });
 
   test('product data structure is correct', () => {
+    const renderedProducts = document.querySelectorAll('.product-item');
+    expect(renderedProducts.length).toBeGreaterThan(0);
     expect(typeof products).toBe('object');
     expect(Array.isArray(products)).toBe(true);
     if (products.length > 0) {
@@ -239,8 +218,7 @@ const jsQuestions = [
     expect(document.getElementById('cartContainer')).toBeTruthy();
     expect(document.getElementById('cartItems')).toBeTruthy();
     expect(document.getElementById('cartTotal')).toBeTruthy();
-  });
-});`,
+  });`,
     defaultFiles: {
       html: '',
       css: '',
@@ -293,23 +271,7 @@ const jsQuestions = [
       'Complete toggle works',
       'localStorage is used'
     ],
-    jestTestFile: `describe('DOM Manipulation - Todo List with Local Storage', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    document.body.innerHTML = \`
-      <div id="todoContainer"></div>
-      <input type="text" id="todoInput" placeholder="Add a new todo..." />
-      <button id="addTodoBtn">Add Todo</button>
-      <div id="todoList"></div>
-      <div id="todoStats">
-        <span id="totalTodos">Total: 0</span>
-        <span id="completedTodos">Completed: 0</span>
-      </div>
-    \`;
-    eval(window.__JS__);
-  });
-
-  test('todo container exists', () => {
+    jestTestFile: `test('todo container exists', () => {
     const container = document.getElementById('todoContainer');
     expect(container).toBeTruthy();
   });
@@ -341,12 +303,12 @@ const jsQuestions = [
 
   test('delete buttons exist', () => {
     const deleteButtons = document.querySelectorAll('.delete-todo-btn');
-    expect(deleteButtons.length).toBeGreaterThanOrEqual(0);
+    expect(deleteButtons.length).toBeGreaterThan(0);
   });
 
   test('complete checkbox exists', () => {
     const checkboxes = document.querySelectorAll('.todo-checkbox');
-    expect(checkboxes.length).toBeGreaterThanOrEqual(0);
+    expect(checkboxes.length).toBeGreaterThan(0);
   });
 
   test('todo stats are displayed', () => {
@@ -357,6 +319,8 @@ const jsQuestions = [
   });
 
   test('todo data structure is correct', () => {
+    const renderedTodos = document.querySelectorAll('.todo-item');
+    expect(renderedTodos.length).toBeGreaterThan(0);
     expect(typeof todos).toBe('object');
     expect(Array.isArray(todos)).toBe(true);
     if (todos.length > 0) {
@@ -366,8 +330,7 @@ const jsQuestions = [
 
   test('todos array has data', () => {
     expect(todos.length).toBeGreaterThan(0);
-  });
-});`,
+  });`,
     defaultFiles: {
       html: '',
       css: '',
@@ -418,26 +381,7 @@ const jsQuestions = [
       'DOM updates dynamically',
       'Highlighting works'
     ],
-    jestTestFile: `describe('DOM Manipulation - Student Grade Dashboard', () => {
-  beforeEach(() => {
-    document.body.innerHTML = \`
-      <div id="dashboardContainer">
-        <input type="text" id="searchInput" placeholder="Search students..." />
-        <select id="filterGrade">
-          <option value="">All Grades</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-        </select>
-        <button id="sortBtn">Sort</button>
-        <div id="statistics"></div>
-        <div id="studentTable"></div>
-      </div>
-    \`;
-    eval(window.__JS__);
-  });
-
-  test('dashboard container exists', () => {
+    jestTestFile: `test('dashboard container exists', () => {
     const container = document.getElementById('dashboardContainer');
     expect(container).toBeTruthy();
   });
@@ -488,6 +432,8 @@ const jsQuestions = [
   });
 
   test('student data structure is correct', () => {
+    const renderedStudents = document.querySelectorAll('.student-row');
+    expect(renderedStudents.length).toBeGreaterThan(0);
     expect(typeof students).toBe('object');
     expect(Array.isArray(students)).toBe(true);
     if (students.length > 0) {
@@ -498,8 +444,7 @@ const jsQuestions = [
 
   test('students array has data', () => {
     expect(students.length).toBeGreaterThan(0);
-  });
-});`,
+  });`,
     defaultFiles: {
       html: '',
       css: '',
@@ -552,29 +497,7 @@ const jsQuestions = [
       'Delete works',
       'Filtering works'
     ],
-    jestTestFile: `describe('DOM Manipulation - Employee Management System', () => {
-  beforeEach(() => {
-    document.body.innerHTML = \`
-      <div id="employeeContainer"></div>
-      <form id="addEmployeeForm">
-        <input type="text" id="empName" placeholder="Name" />
-        <input type="text" id="empDept" placeholder="Department" />
-        <input type="number" id="empSalary" placeholder="Salary" />
-        <button type="submit">Add Employee</button>
-      </form>
-      <select id="deptFilter">
-        <option value="">All Departments</option>
-        <option value="IT">IT</option>
-        <option value="HR">HR</option>
-        <option value="Sales">Sales</option>
-      </select>
-      <div id="employeeList"></div>
-      <div id="payrollStats">Total Payroll: $0</div>
-    \`;
-    eval(window.__JS__);
-  });
-
-  test('employee container exists', () => {
+    jestTestFile: `test('employee container exists', () => {
     const container = document.getElementById('employeeContainer');
     expect(container).toBeTruthy();
   });
@@ -602,12 +525,12 @@ const jsQuestions = [
 
   test('edit buttons exist', () => {
     const editButtons = document.querySelectorAll('.edit-emp-btn');
-    expect(editButtons.length).toBeGreaterThanOrEqual(0);
+    expect(editButtons.length).toBeGreaterThan(0);
   });
 
   test('delete buttons exist', () => {
     const deleteButtons = document.querySelectorAll('.delete-emp-btn');
-    expect(deleteButtons.length).toBeGreaterThanOrEqual(0);
+    expect(deleteButtons.length).toBeGreaterThan(0);
   });
 
   test('department filter exists', () => {
@@ -622,6 +545,8 @@ const jsQuestions = [
   });
 
   test('employee data structure is correct', () => {
+    const renderedEmployees = document.querySelectorAll('.employee-card');
+    expect(renderedEmployees.length).toBeGreaterThan(0);
     expect(typeof employees).toBe('object');
     expect(Array.isArray(employees)).toBe(true);
     if (employees.length > 0) {
@@ -632,8 +557,7 @@ const jsQuestions = [
 
   test('employees array has data', () => {
     expect(employees.length).toBeGreaterThan(0);
-  });
-});`,
+  });`,
     defaultFiles: {
       html: '',
       css: '',

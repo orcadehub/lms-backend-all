@@ -57,13 +57,34 @@ const getAssessments = async (req, res) => {
     const { tenantId } = req.query;
     const filter = tenantId ? { tenantId } : {};
     const assessments = await Assessment.find(filter)
-      .populate('questions', 'title difficulty')
+      .populate('questions', '_id')
+      .populate('frontendQuestions', '_id')
+      .populate('quizQuestions', '_id')
+      .populate('mongodbPlaygroundQuestions', '_id')
       .populate('createdBy', 'name')
       .populate('batches', 'name')
       .select('+startTime')
       .sort({ createdAt: -1 });
     
-    res.json(assessments);
+    const assessmentsWithCounts = assessments.map(assessment => {
+      const assessmentData = assessment.toObject();
+      const questionCounts = {
+        programming: assessment.questions?.length || 0,
+        frontend: assessment.frontendQuestions?.length || 0,
+        quiz: assessment.quizQuestions?.length || 0,
+        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+      };
+      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+      
+      assessmentData.questionCounts = questionCounts;
+      assessmentData.codingQuestionCount = questionCounts.coding;
+      assessmentData.quizQuestionCount = questionCounts.quiz;
+      assessmentData.totalQuestionCount = assessmentData.codingQuestionCount + questionCounts.quiz;
+      
+      return assessmentData;
+    });
+
+    res.json(assessmentsWithCounts);
   } catch (error) {
     console.error('Error fetching assessments:', error);
     res.status(500).json({ message: 'Error fetching assessments', error: error.message });
@@ -87,14 +108,18 @@ const getAssessmentById = async (req, res) => {
     }
     
     const assessmentData = assessment.toObject();
-    const totalCoding = (assessment.questions?.length || 0) + 
-                        (assessment.frontendQuestions?.length || 0) + 
-                        (assessment.mongodbPlaygroundQuestions?.length || 0);
-    const totalQuiz = assessment.quizQuestions?.length || 0;
+    const questionCounts = {
+      programming: assessment.questions?.length || 0,
+      frontend: assessment.frontendQuestions?.length || 0,
+      quiz: assessment.quizQuestions?.length || 0,
+      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+    };
+    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
     
-    assessmentData.codingQuestionCount = totalCoding;
-    assessmentData.quizQuestionCount = totalQuiz;
-    assessmentData.totalQuestionCount = totalCoding + totalQuiz;
+    assessmentData.questionCounts = questionCounts;
+    assessmentData.codingQuestionCount = questionCounts.coding;
+    assessmentData.quizQuestionCount = questionCounts.quiz;
+    assessmentData.totalQuestionCount = assessmentData.codingQuestionCount + questionCounts.quiz;
     
     res.json(assessmentData);
   } catch (error) {
