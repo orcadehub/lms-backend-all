@@ -121,6 +121,35 @@ router.get('/student/profile', validateApiKey, async (req, res) => {
   }
 });
 
+router.post('/student/heartbeat', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
+    
+    await Student.findByIdAndUpdate(studentId, { lastActiveAt: new Date() });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/student/active-count', validateApiKey, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const activeCount = await Student.countDocuments({
+      tenant: tenantId,
+      lastActiveAt: { $gte: fiveMinutesAgo }
+    });
+    res.json({ activeCount });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 // Get student batches
 router.get('/student/batches', validateApiKey, async (req, res) => {
   try {
@@ -1407,7 +1436,12 @@ router.get('/student/assessment-attempt/:attemptId/last-code', validateApiKey, a
       return res.status(404).json({ message: 'Attempt not found' })
     }
 
-    res.json({ lastExecutedCode: attempt.lastExecutedCode || {} })
+    res.json({ 
+      lastExecutedCode: attempt.lastExecutedCode || {},
+      lastExecutedFrontendCode: attempt.lastExecutedFrontendCode || {},
+      lastExecutedMongoDBQuery: attempt.lastExecutedMongoDBQuery || {},
+      quizAnswers: attempt.quizAnswers || {}
+    })
   } catch (error) {
     console.error('Error getting last executed code:', error)
     res.status(500).json({ message: 'Server error' })
@@ -1474,27 +1508,27 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
       .map(([, percentage]) => percentage)
     
     const programmingPercentageSum = programmingPercentages.reduce((sum, p) => sum + p, 0)
-    const totalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
-    const programmingPercentage = totalProgrammingQuestions > 0
-      ? Math.round(programmingPercentageSum / totalProgrammingQuestions)
-      : 0
+    const totalProgramming = assessment.questions?.length || 0;
+    const programmingPercentage = totalProgramming > 0
+      ? Math.round(programmingPercentageSum / totalProgramming)
+      : 0;
     
-    // Calculate overall percentage (average of programming and quiz percentages)
-    const quizPercentage = attempt.quizPercentage || 0
-    const attemptTotalQuizQuestions = attempt.totalQuizQuestions || 0
-    const attemptTotalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
+    const quizPercentage = attempt.quizPercentage || 0;
+    const frontendPercentage = attempt.frontendPercentage || 0;
+    const mongodbPercentage = attempt.mongodbPercentage || 0;
     
-    let overallPercentage = 0
-    if (attemptTotalQuizQuestions > 0 && attemptTotalProgrammingQuestions > 0) {
-      // Both quiz and programming questions exist
-      overallPercentage = Math.round((programmingPercentage + quizPercentage) / 2)
-    } else if (attemptTotalProgrammingQuestions > 0) {
-      // Only programming questions
-      overallPercentage = programmingPercentage
-    } else if (attemptTotalQuizQuestions > 0) {
-      // Only quiz questions
-      overallPercentage = quizPercentage
-    }
+    const totalQuiz = assessment.quizQuestions?.length || 0;
+    const totalFrontend = assessment.frontendQuestions?.length || 0;
+    const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    
+    let overallPercentage = 0;
+    let count = 0;
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++; }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
+    if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
+
     
     // Calculate overall accuracy (average of all problem accuracies)
     const accuracyValues = Object.values(problemAccuracies).map(p => p.accuracy)
@@ -1570,31 +1604,33 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
       .map(([, percentage]) => percentage)
     
     const frontendPercentageSum = frontendPercentages.reduce((sum, p) => sum + p, 0)
-    const totalFrontendQuestions = assessment.frontendQuestions.length || attempt.totalFrontendQuestions || frontendPercentages.length
-    const frontendPercentage = totalFrontendQuestions > 0
-      ? Math.round(frontendPercentageSum / totalFrontendQuestions)
-      : 0
+    const totalFrontend = assessment.frontendQuestions?.length || 0;
+    const frontendPercentage = totalFrontend > 0
+      ? Math.round(frontendPercentageSum / totalFrontend)
+      : 0;
     
-    // Calculate overall percentage
-    const programmingPercentage = attempt.programmingPercentage || 0
-    const quizPercentage = attempt.quizPercentage || 0
-    const totalProgramming = attempt.totalProgrammingQuestions || 0
-    const totalQuiz = attempt.totalQuizQuestions || 0
-    const totalFrontend = totalFrontendQuestions // use assessment value, not attempt field
+    const programmingPercentage = attempt.programmingPercentage || 0;
+    const quizPercentage = attempt.quizPercentage || 0;
+    const mongodbPercentage = attempt.mongodbPercentage || 0;
     
-    let overallPercentage = 0
-    let count = 0
-    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++ }
-    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++ }
-    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++ }
-    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0
+    const totalProgramming = assessment.questions?.length || 0;
+    const totalQuiz = assessment.quizQuestions?.length || 0;
+    const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    
+    let overallPercentage = 0;
+    let count = 0;
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++; }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
+    if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
     
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       lastExecutedFrontendCode,
       questionPercentages,
       frontendPercentage,
       overallPercentage,
-      totalFrontendQuestions: totalFrontendQuestions
+      totalFrontendQuestions: totalFrontend
     })
 
     res.json({ 
@@ -1653,30 +1689,27 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
       .filter(([qId]) => quizQuestionIds.includes(qId))
       .reduce((sum, [, percentage]) => sum + percentage, 0)
     
-    const totalQuizQuestions = attempt.totalQuizQuestions || 0
-    const quizPercentage = totalQuizQuestions > 0
-      ? Math.round(quizPercentageSum / totalQuizQuestions)
-      : 0
+    const totalQuiz = assessment.quizQuestions?.length || 0;
+    const quizPercentage = totalQuiz > 0
+      ? Math.round(quizPercentageSum / totalQuiz)
+      : 0;
 
-    // Calculate overall percentage
-    const programmingPercentage = attempt.programmingPercentage || 0
-    const frontendPercentage = attempt.frontendPercentage || 0
-    const attemptTotalQuizQuestions = attempt.totalQuizQuestions || 0
-    const attemptTotalProgrammingQuestions = attempt.totalProgrammingQuestions || 0
-    const attemptTotalFrontendQuestions = attempt.totalFrontendQuestions || 0
+    const programmingPercentage = attempt.programmingPercentage || 0;
+    const frontendPercentage = attempt.frontendPercentage || 0;
+    const mongodbPercentage = attempt.mongodbPercentage || 0;
     
-    let overallPercentage = 0
-    const totalParts = (attemptTotalQuizQuestions > 0 ? 1 : 0) + 
-                       (attemptTotalProgrammingQuestions > 0 ? 1 : 0) + 
-                       (attemptTotalFrontendQuestions > 0 ? 1 : 0)
+    const totalProgramming = assessment.questions?.length || 0;
+    const totalFrontend = assessment.frontendQuestions?.length || 0;
+    const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
     
-    if (totalParts > 0) {
-      let sum = 0
-      if (attemptTotalQuizQuestions > 0) sum += quizPercentage
-      if (attemptTotalProgrammingQuestions > 0) sum += programmingPercentage
-      if (attemptTotalFrontendQuestions > 0) sum += frontendPercentage
-      overallPercentage = Math.round(sum / totalParts)
-    }
+    let overallPercentage = 0;
+    let count = 0;
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++; }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
+    if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
+
 
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       quizAnswers,
@@ -1741,19 +1774,19 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
       .filter(([qId]) => mongodbQuestionIds.includes(qId))
       .reduce((sum, [, percentage]) => sum + percentage, 0);
     
-    const totalMongoDBQuestions = attempt.totalMongoDBQuestions || 0;
-    const mongodbPercentage = totalMongoDBQuestions > 0
-      ? Math.round(mongodbPercentageSum / totalMongoDBQuestions)
+    const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    const mongodbPercentage = totalMongoDB > 0
+      ? Math.round(mongodbPercentageSum / totalMongoDB)
       : 0;
     
     // Calculate overall percentage
     const programmingPercentage = attempt.programmingPercentage || 0;
     const frontendPercentage = attempt.frontendPercentage || 0;
     const quizPercentage = attempt.quizPercentage || 0;
-    const totalProgramming = attempt.totalProgrammingQuestions || 0;
-    const totalFrontend = attempt.totalFrontendQuestions || 0;
-    const totalQuiz = attempt.totalQuizQuestions || 0;
-    const totalMongoDB = attempt.totalMongoDBQuestions || 0;
+    
+    const totalProgramming = assessment.questions?.length || 0;
+    const totalFrontend = assessment.frontendQuestions?.length || 0;
+    const totalQuiz = assessment.quizQuestions?.length || 0;
     
     let overallPercentage = 0;
     let count = 0;

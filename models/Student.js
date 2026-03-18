@@ -98,6 +98,9 @@ const studentSchema = new mongoose.Schema({
   },
   resetPasswordExpires: {
     type: Date
+  },
+  lastActiveAt: {
+    type: Date
   }
 }, {
   timestamps: true
