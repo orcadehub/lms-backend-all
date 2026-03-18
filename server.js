@@ -28,6 +28,8 @@ const mongoDBPlaygroundQuestionRoutes = require('./routes/mongoDBPlaygroundQuest
 const studyMaterialRoutes = require('./routes/studyMaterials');
 const labRoutes = require('./routes/labRoutes');
 const aiMockRoutes = require('./routes/aiMockRoutes');
+const e2bRoutes = require('./routes/e2bRoutes');
+const genaiQuestionRoutes = require('./routes/genaiQuestionRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -122,6 +124,8 @@ app.use('/api/mongodb-playground', require('./routes/mongoDBPlaygroundRoutes'));
 app.use('/api/study-materials', studyMaterialRoutes);
 app.use('/api/labs', labRoutes);
 app.use('/api/ai-mock', aiMockRoutes);
+app.use('/api/e2b', e2bRoutes);
+app.use('/api/genai-questions', genaiQuestionRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
