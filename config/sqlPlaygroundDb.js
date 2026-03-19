@@ -1,9 +1,4 @@
-const { Pool, neonConfig } = require('@neondatabase/serverless');
-const ws = require('ws');
-
-// Explicitly use the ws library to avoid standard node native fetch/websocket bugs
-neonConfig.webSocketConstructor = ws;
-
+const { Pool } = require('pg');
 require('dotenv').config();
 
 let sqlPool = null;
@@ -12,6 +7,9 @@ const getSqlPool = () => {
   if (!sqlPool) {
     sqlPool = new Pool({
       connectionString: process.env.POSTGRES_URI || 'postgresql://postgres:postgres@localhost:5432/sql_playground',
+      max: 200, // Handle up to 200 concurrent users connection pool
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     });
   }
   return sqlPool;
