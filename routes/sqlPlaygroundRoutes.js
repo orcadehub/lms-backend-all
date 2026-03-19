@@ -29,14 +29,17 @@ router.post('/expected-output', validateApiKey, async (req, res) => {
       }
 
       const pool = getSqlPool();
+      console.log('Executing Expected SQL query:', expectedQuery);
       const result = await pool.query(expectedQuery);
+      console.log('Expected SQL query executed successfully, rows:', result.rows.length);
       
       res.json({ success: true, result: result.rows });
     } catch (queryError) {
+      console.error('Expected SQL Query Error:', queryError);
       res.json({ success: false, error: queryError.message });
     }
   } catch (error) {
-    console.error('Error executing expected query:', error);
+    console.error('Expected SQL Route Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -66,14 +69,17 @@ router.post('/execute', validateApiKey, async (req, res) => {
       }
 
       const pool = getSqlPool();
+      console.log('Executing SQL query:', query);
       const result = await pool.query(query);
+      console.log('SQL query executed successfully, rows:', result.rows.length);
       
       res.json({ success: true, result: result.rows });
     } catch (queryError) {
+      console.error('SQL Query Error:', queryError);
       res.json({ success: false, error: queryError.message });
     }
   } catch (error) {
-    console.error('Error executing SQL query:', error);
+    console.error('SQL Route Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
