@@ -937,7 +937,8 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
       { path: 'questions' },
       { path: 'quizQuestions' },
       { path: 'frontendQuestions' },
-      { path: 'mongodbPlaygroundQuestions' }
+      { path: 'mongodbPlaygroundQuestions' },
+      { path: 'sqlPlaygroundQuestions' }
     ]);
 
     const assessmentsWithCounts = populatedAssessments.map(assessment => {
@@ -946,9 +947,10 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
         programming: assessment.questions?.length || 0,
         frontend: assessment.frontendQuestions?.length || 0,
         quiz: assessment.quizQuestions?.length || 0,
-        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0,
+        sql: assessment.sqlPlaygroundQuestions?.length || 0
       };
-      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb + questionCounts.sql;
       
       assessmentData.questionCounts = questionCounts;
       assessmentData.codingQuestionCount = questionCounts.coding;
@@ -985,7 +987,8 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     .populate('questions')
     .populate('frontendQuestions')
     .populate('quizQuestions')
-    .populate('mongodbPlaygroundQuestions');
+    .populate('mongodbPlaygroundQuestions')
+    .populate('sqlPlaygroundQuestions');
 
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -996,9 +999,10 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
       programming: assessment.questions?.length || 0,
       frontend: assessment.frontendQuestions?.length || 0,
       quiz: assessment.quizQuestions?.length || 0,
-      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0,
+      sql: assessment.sqlPlaygroundQuestions?.length || 0
     };
-    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb + questionCounts.sql;
     
     assessmentData.questionCounts = questionCounts;
     assessmentData.codingQuestionCount = questionCounts.coding;
@@ -1028,7 +1032,7 @@ router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req,
     const assessment = await Assessment.findOne({
       _id: assessmentId,
       tenantId: tenantId
-    }).select('-questions -frontendQuestions -quizQuestions -mongodbPlaygroundQuestions');
+    }).select('-questions -frontendQuestions -quizQuestions -mongodbPlaygroundQuestions -sqlPlaygroundQuestions');
 
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
@@ -1041,7 +1045,8 @@ router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req,
       programming: fullAssessment.questions?.length || 0,
       frontend: fullAssessment.frontendQuestions?.length || 0,
       quiz: fullAssessment.quizQuestions?.length || 0,
-      mongodb: fullAssessment.mongodbPlaygroundQuestions?.length || 0
+      mongodb: fullAssessment.mongodbPlaygroundQuestions?.length || 0,
+      sql: fullAssessment.sqlPlaygroundQuestions?.length || 0
     };
 
     res.json(assessmentInfo);
@@ -1079,6 +1084,9 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
       path: 'mongodbPlaygroundQuestions'
     })
     .populate({
+      path: 'sqlPlaygroundQuestions'
+    })
+    .populate({
       path: 'quizQuestions',
       select: '-correctAnswer' // Exclude correct answers
     });
@@ -1091,6 +1099,7 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
       programmingQuestions: assessment.questions,
       frontendQuestions: assessment.frontendQuestions,
       mongodbPlaygroundQuestions: assessment.mongodbPlaygroundQuestions,
+      sqlPlaygroundQuestions: assessment.sqlPlaygroundQuestions,
       quizQuestions: assessment.quizQuestions
     });
   } catch (error) {
@@ -1236,7 +1245,8 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       .populate('questions')
       .populate('frontendQuestions')
       .populate('quizQuestions')
-      .populate('mongodbPlaygroundQuestions');
+      .populate('mongodbPlaygroundQuestions')
+      .populate('sqlPlaygroundQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
     }
@@ -1261,13 +1271,15 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
     const totalFrontendQuestions = (assessment.frontendQuestions && assessment.frontendQuestions.length) || 0;
     const totalQuizQuestions = (assessment.quizQuestions && assessment.quizQuestions.length) || 0;
     const totalMongoDBQuestions = (assessment.mongodbPlaygroundQuestions && assessment.mongodbPlaygroundQuestions.length) || 0;
-    const totalQuestions = totalProgrammingQuestions + totalFrontendQuestions + totalQuizQuestions + totalMongoDBQuestions;
+    const totalSQLQuestions = (assessment.sqlPlaygroundQuestions && assessment.sqlPlaygroundQuestions.length) || 0;
+    const totalQuestions = totalProgrammingQuestions + totalFrontendQuestions + totalQuizQuestions + totalMongoDBQuestions + totalSQLQuestions;
 
     console.log('Assessment counts:', {
       totalProgrammingQuestions,
       totalFrontendQuestions,
       totalQuizQuestions,
       totalMongoDBQuestions,
+      totalSQLQuestions,
       totalQuestions
     });
 
@@ -1281,6 +1293,7 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       totalFrontendQuestions: totalFrontendQuestions,
       totalQuizQuestions: totalQuizQuestions,
       totalMongoDBQuestions: totalMongoDBQuestions,
+      totalSQLQuestions: totalSQLQuestions,
       startedAt: new Date(),
       remainingTimeSeconds: assessment.duration * 60,
       attemptStatus: 'IN_PROGRESS'
@@ -1440,6 +1453,7 @@ router.get('/student/assessment-attempt/:attemptId/last-code', validateApiKey, a
       lastExecutedCode: attempt.lastExecutedCode || {},
       lastExecutedFrontendCode: attempt.lastExecutedFrontendCode || {},
       lastExecutedMongoDBQuery: attempt.lastExecutedMongoDBQuery || {},
+      lastExecutedSQLQuery: attempt.lastExecutedSQLQuery || {},
       quizAnswers: attempt.quizAnswers || {}
     })
   } catch (error) {
@@ -1516,10 +1530,12 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     const quizPercentage = attempt.quizPercentage || 0;
     const frontendPercentage = attempt.frontendPercentage || 0;
     const mongodbPercentage = attempt.mongodbPercentage || 0;
+    const sqlPercentage = attempt.sqlPercentage || 0;
     
     const totalQuiz = assessment.quizQuestions?.length || 0;
     const totalFrontend = assessment.frontendQuestions?.length || 0;
     const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    const totalSQL = assessment.sqlPlaygroundQuestions?.length || 0;
     
     let overallPercentage = 0;
     let count = 0;
@@ -1527,6 +1543,7 @@ router.post('/student/assessment-attempt/:attemptId/save-code', validateApiKey, 
     if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
     if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
     if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    if (totalSQL > 0) { overallPercentage += sqlPercentage; count++; }
     overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
 
     
@@ -1609,13 +1626,14 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
       ? Math.round(frontendPercentageSum / totalFrontend)
       : 0;
     
-    const programmingPercentage = attempt.programmingPercentage || 0;
     const quizPercentage = attempt.quizPercentage || 0;
     const mongodbPercentage = attempt.mongodbPercentage || 0;
+    const sqlPercentage = attempt.sqlPercentage || 0;
     
     const totalProgramming = assessment.questions?.length || 0;
     const totalQuiz = assessment.quizQuestions?.length || 0;
     const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    const totalSQL = assessment.sqlPlaygroundQuestions?.length || 0;
     
     let overallPercentage = 0;
     let count = 0;
@@ -1623,6 +1641,7 @@ router.post('/student/assessment-attempt/:attemptId/save-frontend-code', validat
     if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
     if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
     if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    if (totalSQL > 0) { overallPercentage += sqlPercentage; count++; }
     overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
     
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
@@ -1697,10 +1716,12 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
     const programmingPercentage = attempt.programmingPercentage || 0;
     const frontendPercentage = attempt.frontendPercentage || 0;
     const mongodbPercentage = attempt.mongodbPercentage || 0;
+    const sqlPercentage = attempt.sqlPercentage || 0;
     
     const totalProgramming = assessment.questions?.length || 0;
     const totalFrontend = assessment.frontendQuestions?.length || 0;
     const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    const totalSQL = assessment.sqlPlaygroundQuestions?.length || 0;
     
     let overallPercentage = 0;
     let count = 0;
@@ -1708,6 +1729,7 @@ router.post('/student/assessment-attempt/:attemptId/save-quiz-answer', validateA
     if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
     if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
     if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    if (totalSQL > 0) { overallPercentage += sqlPercentage; count++; }
     overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
 
 
@@ -1779,14 +1801,15 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
       ? Math.round(mongodbPercentageSum / totalMongoDB)
       : 0;
     
-    // Calculate overall percentage
     const programmingPercentage = attempt.programmingPercentage || 0;
     const frontendPercentage = attempt.frontendPercentage || 0;
     const quizPercentage = attempt.quizPercentage || 0;
+    const sqlPercentage = attempt.sqlPercentage || 0;
     
     const totalProgramming = assessment.questions?.length || 0;
     const totalFrontend = assessment.frontendQuestions?.length || 0;
     const totalQuiz = assessment.quizQuestions?.length || 0;
+    const totalSQL = assessment.sqlPlaygroundQuestions?.length || 0;
     
     let overallPercentage = 0;
     let count = 0;
@@ -1794,6 +1817,7 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
     if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
     if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
     if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    if (totalSQL > 0) { overallPercentage += sqlPercentage; count++; }
     overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
     
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
@@ -1812,6 +1836,94 @@ router.post('/student/assessment-attempt/:attemptId/save-mongodb-query', validat
     });
   } catch (error) {
     console.error('Error saving MongoDB query:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Save SQL query
+router.post('/student/assessment-attempt/:attemptId/save-sql-query', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const { attemptId } = req.params;
+    const { questionId, query, result, expectedOutput, isCorrect } = req.body;
+
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const Assessment = require('../models/Assessment');
+    
+    const attempt = await AssessmentAttempt.findById(attemptId);
+    if (!attempt) {
+      return res.status(404).json({ message: 'Attempt not found' });
+    }
+
+    // Update last executed SQL query
+    const lastExecutedSQLQuery = attempt.lastExecutedSQLQuery || {};
+    lastExecutedSQLQuery[questionId] = query;
+    
+    // Calculate percentage for this question
+    const questionPercentages = attempt.questionPercentages || {};
+    // Use isCorrect from frontend if provided, otherwise compare
+    let correct = isCorrect;
+    if (correct === undefined) {
+      const sortedResult = sortArrayDeep(result);
+      const sortedExpected = sortArrayDeep(expectedOutput);
+      correct = JSON.stringify(sortedResult) === JSON.stringify(sortedExpected);
+    }
+    questionPercentages[questionId] = correct ? 100 : 0;
+    
+    // Get assessment to identify SQL questions
+    const assessment = await Assessment.findById(attempt.assessment).populate('sqlPlaygroundQuestions');
+    const sqlQuestionIds = assessment.sqlPlaygroundQuestions.map(q => q._id.toString());
+    
+    // Calculate SQL percentage (sum of all SQL question percentages / total SQL questions)
+    const sqlPercentageSum = Object.entries(questionPercentages)
+      .filter(([qId]) => sqlQuestionIds.includes(qId))
+      .reduce((sum, [, percentage]) => sum + percentage, 0);
+    
+    const totalSQL = assessment.sqlPlaygroundQuestions?.length || 0;
+    const sqlPercentage = totalSQL > 0
+      ? Math.round(sqlPercentageSum / totalSQL)
+      : 0;
+    
+    // Calculate overall percentage
+    const programmingPercentage = attempt.programmingPercentage || 0;
+    const frontendPercentage = attempt.frontendPercentage || 0;
+    const quizPercentage = attempt.quizPercentage || 0;
+    const mongodbPercentage = attempt.mongodbPercentage || 0;
+    
+    const totalProgramming = assessment.questions?.length || 0;
+    const totalFrontend = assessment.frontendQuestions?.length || 0;
+    const totalQuiz = assessment.quizQuestions?.length || 0;
+    const totalMongoDB = assessment.mongodbPlaygroundQuestions?.length || 0;
+    
+    let overallPercentage = 0;
+    let count = 0;
+    if (totalProgramming > 0) { overallPercentage += programmingPercentage; count++; }
+    if (totalFrontend > 0) { overallPercentage += frontendPercentage; count++; }
+    if (totalQuiz > 0) { overallPercentage += quizPercentage; count++; }
+    if (totalMongoDB > 0) { overallPercentage += mongodbPercentage; count++; }
+    if (totalSQL > 0) { overallPercentage += sqlPercentage; count++; }
+    overallPercentage = count > 0 ? Math.round(overallPercentage / count) : 0;
+    
+    await AssessmentAttempt.findByIdAndUpdate(attemptId, {
+      lastExecutedSQLQuery,
+      questionPercentages,
+      sqlPercentage,
+      overallPercentage
+    });
+
+    res.json({ 
+      message: 'SQL query saved successfully',
+      isCorrect: correct,
+      questionPercentage: questionPercentages[questionId] || 0,
+      sqlPercentage,
+      overallPercentage
+    });
+  } catch (error) {
+    console.error('Error saving SQL query:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -13,7 +13,7 @@ const assessmentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'mongodb', 'system-design', 'aptitude', 'technical', 'behavioral']
+    enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'mongodb', 'sql', 'system-design', 'aptitude', 'technical', 'behavioral']
   },
   duration: {
     type: Number,
@@ -41,6 +41,10 @@ const assessmentSchema = new mongoose.Schema({
   mongodbPlaygroundQuestions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MongoDBPlaygroundQuestion'
+  }],
+  sqlPlaygroundQuestions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SQLPlaygroundQuestion'
   }],
   batches: [{
     type: mongoose.Schema.Types.ObjectId,

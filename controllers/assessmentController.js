@@ -61,6 +61,7 @@ const getAssessments = async (req, res) => {
       .populate('frontendQuestions', '_id')
       .populate('quizQuestions', '_id')
       .populate('mongodbPlaygroundQuestions', '_id')
+      .populate('sqlPlaygroundQuestions', '_id')
       .populate('createdBy', 'name')
       .populate('batches', 'name')
       .select('+startTime')
@@ -72,9 +73,10 @@ const getAssessments = async (req, res) => {
         programming: assessment.questions?.length || 0,
         frontend: assessment.frontendQuestions?.length || 0,
         quiz: assessment.quizQuestions?.length || 0,
-        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0,
+        sql: assessment.sqlPlaygroundQuestions?.length || 0
       };
-      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb + questionCounts.sql;
       
       assessmentData.questionCounts = questionCounts;
       assessmentData.codingQuestionCount = questionCounts.coding;
@@ -100,6 +102,7 @@ const getAssessmentById = async (req, res) => {
       .populate('quizQuestions')
       .populate('frontendQuestions')
       .populate('mongodbPlaygroundQuestions')
+      .populate('sqlPlaygroundQuestions')
       .populate('createdBy', 'name')
       .select('+startTime +showKeyInsights +showAlgorithmSteps +type');
     
@@ -112,9 +115,10 @@ const getAssessmentById = async (req, res) => {
       programming: assessment.questions?.length || 0,
       frontend: assessment.frontendQuestions?.length || 0,
       quiz: assessment.quizQuestions?.length || 0,
-      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0
+      mongodb: assessment.mongodbPlaygroundQuestions?.length || 0,
+      sql: assessment.sqlPlaygroundQuestions?.length || 0
     };
-    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb;
+    questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb + questionCounts.sql;
     
     assessmentData.questionCounts = questionCounts;
     assessmentData.codingQuestionCount = questionCounts.coding;
@@ -304,6 +308,7 @@ const getAssessmentAttempts = async (req, res) => {
       programmingPercentage: attempt.programmingPercentage || 0,
       frontendPercentage: attempt.frontendPercentage || 0,
       mongodbPercentage: attempt.mongodbPercentage || 0,
+      sqlPercentage: attempt.sqlPercentage || 0,
       overallPercentage: attempt.overallPercentage || 0
     }));
     
@@ -654,6 +659,55 @@ const removeMongoDBQuestion = async (req, res) => {
   }
 };
 
+// Add SQL question to assessment
+const addSQLQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { questionId } = req.body;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (!assessment.sqlPlaygroundQuestions) {
+      assessment.sqlPlaygroundQuestions = [];
+    }
+    
+    if (!assessment.sqlPlaygroundQuestions.includes(questionId)) {
+      assessment.sqlPlaygroundQuestions.push(questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('sqlPlaygroundQuestions');
+    res.json({ message: 'SQL question added successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove SQL question from assessment
+const removeSQLQuestion = async (req, res) => {
+  try {
+    const { id, questionId } = req.params;
+    
+    const assessment = await Assessment.findById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+    
+    if (assessment.sqlPlaygroundQuestions) {
+      assessment.sqlPlaygroundQuestions = assessment.sqlPlaygroundQuestions.filter(q => q.toString() !== questionId);
+      await assessment.save();
+    }
+    
+    await assessment.populate('sqlPlaygroundQuestions');
+    res.json({ message: 'SQL question removed successfully', assessment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Add frontend question to assessment
 const addFrontendQuestion = async (req, res) => {
   try {
@@ -776,6 +830,8 @@ const markAllInProgressRetake = async (req, res) => {
         questionPercentages: {},
         programmingPercentage: 0,
         quizPercentage: 0,
+        mongodbPercentage: 0,
+        sqlPercentage: 0,
         overallPercentage: 0,
         tabSwitchCount: 0,
         fullscreenExitCount: 0,
@@ -905,6 +961,8 @@ module.exports = {
   removeProgrammingQuestion,
   addMongoDBQuestion,
   removeMongoDBQuestion,
+  addSQLQuestion,
+  removeSQLQuestion,
   markAllInProgressCompleted,
   markAllInProgressResume,
   markAllInProgressRetake,

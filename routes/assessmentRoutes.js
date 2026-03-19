@@ -13,7 +13,15 @@ const {
   exportAssessmentResults,
   deleteAllAttempts,
   addProgrammingQuestion,
-  removeProgrammingQuestion
+  removeProgrammingQuestion,
+  addQuizQuestion,
+  removeQuizQuestion,
+  addFrontendQuestion,
+  removeFrontendQuestion,
+  addMongoDBQuestion,
+  removeMongoDBQuestion,
+  addSQLQuestion,
+  removeSQLQuestion,
 } = require('../controllers/assessmentController');
 const { auth } = require('../middleware/auth');
 
@@ -63,28 +71,34 @@ router.patch('/:id/mark-all-inprogress-resume', require('../controllers/assessme
 router.patch('/:id/mark-all-completed-resume', require('../controllers/assessmentController').markAllCompletedResume);
 
 // DELETE /api/assessments/:id/delete-all-attempts - Delete all attempts for assessment
-router.delete('/:id/delete-all-attempts', require('../controllers/assessmentController').deleteAllAttempts);
+router.delete('/:id/delete-all-attempts', deleteAllAttempts);
 
 // PATCH /api/assessments/:id/mark-all-inprogress-retake - Mark all in-progress as retake allowed
 router.patch('/:id/mark-all-inprogress-retake', require('../controllers/assessmentController').markAllInProgressRetake);
 
 // POST /api/assessments/:id/quiz-questions - Add quiz question to assessment
-router.post('/:id/quiz-questions', require('../controllers/assessmentController').addQuizQuestion);
+router.post('/:id/quiz-questions', addQuizQuestion);
 
 // DELETE /api/assessments/:id/quiz-questions/:questionId - Remove quiz question from assessment
-router.delete('/:id/quiz-questions/:questionId', require('../controllers/assessmentController').removeQuizQuestion);
+router.delete('/:id/quiz-questions/:questionId', removeQuizQuestion);
 
 // POST /api/assessments/:id/frontend-questions - Add frontend question to assessment
-router.post('/:id/frontend-questions', require('../controllers/assessmentController').addFrontendQuestion);
+router.post('/:id/frontend-questions', addFrontendQuestion);
 
 // DELETE /api/assessments/:id/frontend-questions/:questionId - Remove frontend question from assessment
-router.delete('/:id/frontend-questions/:questionId', require('../controllers/assessmentController').removeFrontendQuestion);
+router.delete('/:id/frontend-questions/:questionId', removeFrontendQuestion);
 
 // POST /api/assessments/:id/mongodb-questions - Add MongoDB question to assessment
-router.post('/:id/mongodb-questions', require('../controllers/assessmentController').addMongoDBQuestion);
+router.post('/:id/mongodb-questions', addMongoDBQuestion);
 
 // DELETE /api/assessments/:id/mongodb-questions/:questionId - Remove MongoDB question from assessment
-router.delete('/:id/mongodb-questions/:questionId', require('../controllers/assessmentController').removeMongoDBQuestion);
+router.delete('/:id/mongodb-questions/:questionId', removeMongoDBQuestion);
+
+// POST /api/assessments/:id/sql-questions - Add SQL question to assessment
+router.post('/:id/sql-questions', addSQLQuestion);
+
+// DELETE /api/assessments/:id/sql-questions/:questionId - Remove SQL question from assessment
+router.delete('/:id/sql-questions/:questionId', removeSQLQuestion);
 
 // POST /api/assessments/:id/programming-questions - Add programming question to assessment
 router.post('/:id/programming-questions', addProgrammingQuestion);
