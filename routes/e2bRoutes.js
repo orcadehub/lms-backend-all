@@ -10,17 +10,24 @@ const sandboxPool = new Map();
 const getSandbox = async (sessionId) => {
   if (sandboxPool.has(sessionId)) {
     const entry = sandboxPool.get(sessionId);
-    clearTimeout(entry.timer);
-    entry.timer = setTimeout(() => killEntry(sessionId), 4 * 60 * 1000);
-    return entry.sandbox;
+    try {
+      // Verify sandbox is still alive
+      await entry.sandbox.isRunning();
+      clearTimeout(entry.timer);
+      entry.timer = setTimeout(() => killEntry(sessionId), 2 * 60 * 1000);
+      return entry.sandbox;
+    } catch {
+      // Sandbox expired on E2B side, remove stale entry
+      sandboxPool.delete(sessionId);
+    }
   }
 
   const sandbox = await Sandbox.create({
     apiKey: E2B_API_KEY,
-    timeoutMs: 5 * 60 * 1000,
+    timeoutMs: 3 * 60 * 1000,
   });
 
-  const timer = setTimeout(() => killEntry(sessionId), 4 * 60 * 1000);
+  const timer = setTimeout(() => killEntry(sessionId), 2 * 60 * 1000);
   sandboxPool.set(sessionId, { sandbox, timer });
   return sandbox;
 };
@@ -152,6 +159,33 @@ router.post('/kill', async (req, res) => {
   const { sessionId } = req.body;
   if (sessionId) await killEntry(sessionId);
   return res.json({ killed: true });
+});
+
+// POST /api/e2b/kill-all — kill ALL running sandboxes on the E2B account
+router.post('/kill-all', async (req, res) => {
+  try {
+    // Kill all locally tracked sandboxes
+    for (const [sid] of sandboxPool) {
+      await killEntry(sid);
+    }
+
+    // Also kill any orphaned sandboxes via E2B SDK
+    const runningSandboxes = await Sandbox.list({ apiKey: E2B_API_KEY });
+    let killed = 0;
+    for (const info of runningSandboxes) {
+      try {
+        const sb = await Sandbox.connect(info.sandboxId, { apiKey: E2B_API_KEY });
+        await sb.kill();
+        killed++;
+      } catch {}
+    }
+
+    console.log(`[E2B] kill-all: killed ${killed} orphaned sandboxes`);
+    return res.json({ killed, message: `Killed ${killed} sandboxes` });
+  } catch (err) {
+    console.error('[E2B] kill-all error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
