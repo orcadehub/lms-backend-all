@@ -8,207 +8,125 @@ const { auth } = require('../middleware/auth');
 // Submit practice solution
 router.post('/submit', auth, async (req, res) => {
   try {
-    console.log('Submit request received:', req.body);
-    console.log('User from auth:', req.user);
-    
-    const { 
-      questionId, 
-      subTopicId, 
-      topicId, 
-      code, 
-      language, 
-      status, 
-      passedTests, 
-      totalTests, 
-      executionTime, 
-      memoryUsed 
-    } = req.body;
-    
+    const { questionId, subTopicId, topicId, code, language, status, passedTests, totalTests, executionTime, memoryUsed } = req.body;
     const userId = req.user._id || req.user.id;
-    console.log('Using userId:', userId);
     
-    // Find or create practice submission record
     let practiceSubmission = await PracticeSubmission.findOne({ userId, questionId });
-    console.log('Existing submission:', practiceSubmission);
-    
     if (!practiceSubmission) {
-      // Get question details for coins
       const question = await ProgrammingQuestion.findById(questionId);
-      console.log('Question found:', question);
-      
       practiceSubmission = new PracticeSubmission({
-        userId,
-        questionId,
-        subTopicId,
-        topicId,
+        userId, questionId, subTopicId, topicId,
         maxCoinsAvailable: question?.points || 10,
-        difficulty: question?.difficulty
+        difficulty: question?.difficulty,
+        topic: question?.topic // Store topic name for statistics
       });
-      console.log('Created new submission:', practiceSubmission);
     }
     
-    // Add submission to array
-    const submission = {
-      code,
-      language,
-      status,
-      passedTests,
-      totalTests,
-      executionTime,
-      memoryUsed
-    };
-    
-    if (!practiceSubmission.submissions) {
-      practiceSubmission.submissions = [];
-    }
-    practiceSubmission.submissions.push(submission);
+    practiceSubmission.submissions.push({ code, language, status, passedTests, totalTests, executionTime, memoryUsed });
     practiceSubmission.totalAttempts += 1;
+    if (!practiceSubmission.languagesUsed.includes(language)) practiceSubmission.languagesUsed.push(language);
     
-    // Update language usage
-    if (!practiceSubmission.languagesUsed.includes(language)) {
-      practiceSubmission.languagesUsed.push(language);
-    }
-    
-    // If successful and not already completed
-    if (status === 'accepted' && !practiceSubmission.isCompleted) {
+    const isNewCompletion = status === 'accepted' && !practiceSubmission.isCompleted;
+    if (isNewCompletion) {
       practiceSubmission.isCompleted = true;
       practiceSubmission.completedAt = new Date();
       practiceSubmission.successfulSubmissions += 1;
       practiceSubmission.coinsEarned = practiceSubmission.maxCoinsAvailable;
-      
-      // Set time to complete if timer was used
-      if (req.body.timeToComplete) {
-        practiceSubmission.timeToComplete = req.body.timeToComplete;
-        practiceSubmission.timerUsed = true;
-      }
     } else if (status === 'accepted') {
       practiceSubmission.successfulSubmissions += 1;
     }
     
-    // Update performance metrics
-    if (executionTime && (!practiceSubmission.bestExecutionTime || executionTime < practiceSubmission.bestExecutionTime)) {
-      practiceSubmission.bestExecutionTime = executionTime;
-    }
-    
-    if (memoryUsed && (!practiceSubmission.bestMemoryUsage || memoryUsed < practiceSubmission.bestMemoryUsage)) {
-      practiceSubmission.bestMemoryUsage = memoryUsed;
-    }
+    if (executionTime && (!practiceSubmission.bestExecutionTime || executionTime < practiceSubmission.bestExecutionTime)) practiceSubmission.bestExecutionTime = executionTime;
+    if (memoryUsed && (!practiceSubmission.bestMemoryUsage || memoryUsed < practiceSubmission.bestMemoryUsage)) practiceSubmission.bestMemoryUsage = memoryUsed;
     
     await practiceSubmission.save();
-    console.log('Saved submission:', practiceSubmission);
     
-    res.json({
-      success: true,
-      coinsEarned: practiceSubmission.coinsEarned,
-      isFirstCompletion: status === 'accepted' && practiceSubmission.successfulSubmissions === 1,
-      practiceSubmission
-    });
+    if (isNewCompletion) {
+      const io = req.app.get('io');
+      if (io) {
+        const question = await ProgrammingQuestion.findById(questionId);
+        io.emit('practice_completion', {
+          username: req.user.name,
+          problemTitle: question?.title || 'Unknown Problem',
+          coins: practiceSubmission.coinsEarned || 0,
+          timestamp: new Date()
+        });
+      }
+    }
     
+    res.json({ success: true, coinsEarned: practiceSubmission.coinsEarned, isFirstCompletion: isNewCompletion });
   } catch (error) {
-    console.error('Practice submission error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({ message: error.message, error: error.toString() });
+    res.status(500).json({ message: error.message });
   }
 });
 
-// Save code execution (run button)
 router.post('/save-code', auth, async (req, res) => {
   try {
     const { questionId, subTopicId, topicId, code, language } = req.body;
-    const userId = req.user.id;
-    
-    let practiceSubmission = await PracticeSubmission.findOne({ userId, questionId });
-    
+    let practiceSubmission = await PracticeSubmission.findOne({ userId: req.user.id, questionId });
     if (!practiceSubmission) {
       const question = await ProgrammingQuestion.findById(questionId);
-      practiceSubmission = new PracticeSubmission({
-        userId,
-        questionId,
-        subTopicId,
-        topicId,
-        maxCoinsAvailable: question.points || 10,
-        difficulty: question.difficulty
-      });
+      practiceSubmission = new PracticeSubmission({ userId: req.user.id, questionId, subTopicId, topicId, difficulty: question?.difficulty, topic: question?.topic });
     }
-    
-    // Update code history
-    practiceSubmission.codeHistory.set(language, {
-      code,
-      lastUpdated: new Date()
-    });
-    
-    // Update last executed code
-    practiceSubmission.lastExecutedCodes.set(language, {
-      code,
-      executedAt: new Date()
-    });
-    
+    practiceSubmission.codeHistory.set(language, { code, lastUpdated: new Date() });
+    practiceSubmission.lastExecutedCodes.set(language, { code, executedAt: new Date() });
     practiceSubmission.currentLanguage = language;
     practiceSubmission.totalRuns += 1;
-    
     await practiceSubmission.save();
-    
     res.json({ success: true });
-    
   } catch (error) {
-    console.error('Save code error:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get user's practice submission for a question
 router.get('/question/:questionId', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { questionId } = req.params;
-    
-    const practiceSubmission = await PracticeSubmission.findOne({ userId, questionId });
-    
+    const practiceSubmission = await PracticeSubmission.findOne({ userId: req.user.id, questionId: req.params.questionId });
     res.json(practiceSubmission || null);
-    
   } catch (error) {
-    console.error('Get practice submission error:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get user's total coins
 router.get('/coins', auth, async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    
     const result = await PracticeSubmission.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId), isCompleted: true } },
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true } },
       { $group: { _id: null, totalCoins: { $sum: '$coinsEarned' } } }
     ]);
-    
-    const totalCoins = result.length > 0 ? result[0].totalCoins : 0;
-    
-    res.json({ totalCoins });
-    
+    res.json({ totalCoins: result.length > 0 ? result[0].totalCoins : 0 });
   } catch (error) {
-    console.error('Get coins error:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get user's completed questions
 router.get('/completed', auth, async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    
-    const completedSubmissions = await PracticeSubmission.find({
-      userId: new mongoose.Types.ObjectId(userId),
-      isCompleted: true
-    }).select('questionId');
-    
-    const completedQuestionIds = completedSubmissions.map(sub => sub.questionId.toString());
-    
-    res.json({ completedQuestionIds });
-    
+    const subs = await PracticeSubmission.find({ userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true }).select('questionId');
+    res.json({ completedQuestionIds: subs.map(s => s.questionId.toString()) });
   } catch (error) {
-    console.error('Get completed questions error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const solvedCount = await PracticeSubmission.countDocuments({ userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true });
+    const totalQuestions = await ProgrammingQuestion.countDocuments({ isActive: true });
+    
+    // Aggregate by topic name since topicId might not be consistent
+    const topicStats = await PracticeSubmission.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true } },
+      { $lookup: { from: 'programmingquestions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+      { $unwind: '$q' },
+      { $group: { _id: '$q.topic', solvedCount: { $sum: 1 } } }
+    ]);
+
+    const topicMap = {};
+    topicStats.forEach(s => { topicMap[s._id] = s.solvedCount; });
+
+    res.json({ solvedCount, totalQuestions, topicStats: topicMap });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
