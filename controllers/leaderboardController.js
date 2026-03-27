@@ -1,6 +1,7 @@
 const Student = require('../models/Student');
 const AssessmentAttempt = require('../models/AssessmentAttempt');
 const ProgrammingQuestion = require('../models/ProgrammingQuestion');
+const PracticeSubmission = require('../models/PracticeSubmission');
 const mongoose = require('mongoose');
 
 const leaderboardController = {
@@ -14,21 +15,28 @@ const leaderboardController = {
         return res.status(400).json({ message: 'Email is required' });
       }
       
-      // Extract domain from user email
       const emailDomain = userEmail.split('@')[1];
-      
-      // Get all students with their coding profiles, filtered by domain
       const query = { isActive: true, email: { $regex: `@${emailDomain}$`, $options: 'i' } };
       
       const students = await Student.find(query)
         .select('name email codingProfiles')
         .limit(limit)
         .lean();
+
+      // Get practice solved counts for all students in this domain
+      const practiceStats = await PracticeSubmission.aggregate([
+        { $match: { isCompleted: true } },
+        { $group: { _id: '$userId', solvedCount: { $sum: 1 } } }
+      ]);
+
+      const practiceMap = {};
+      practiceStats.forEach(stat => {
+        practiceMap[stat._id.toString()] = stat.solvedCount;
+      });
       
-      // Calculate total problems solved for each student
       const leaderboardData = students.map(student => {
         const profiles = student.codingProfiles || {};
-        const appSolved = 0; // TODO: Calculate from programming questions attempts
+        const appSolved = practiceMap[student._id.toString()] || 0;
         const totalSolved = 
           (profiles.leetcode?.totalSolved || 0) +
           (profiles.hackerrank?.totalSolved || 0) +
@@ -46,13 +54,6 @@ const leaderboardController = {
           leetcodeUsername: profiles.leetcode?.username,
           hackerrankUsername: profiles.hackerrank?.username,
           codeforcesUsername: profiles.codeforces?.username,
-          leetcodeEasy: profiles.leetcode?.easySolved || 0,
-          leetcodeMedium: profiles.leetcode?.mediumSolved || 0,
-          leetcodeHard: profiles.leetcode?.hardSolved || 0,
-          leetcodeRanking: profiles.leetcode?.ranking || 0,
-          hackerrankBadges: profiles.hackerrank?.badges || 0,
-          codeforcesRating: profiles.codeforces?.rating || 0,
-          codeforcesRank: profiles.codeforces?.rank || 'unrated',
           appSolved
         };
       });
