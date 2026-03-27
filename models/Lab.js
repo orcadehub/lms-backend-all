@@ -13,7 +13,7 @@ const labSchema = new mongoose.Schema({
   difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Easy' },
   technology: { 
     type: String, 
-    enum: ['C', 'C++', 'Java', 'Python', 'JavaScript', 'React', 'MongoDB', 'MySQL', 'PostgreSQL', 'HTML/CSS', 'AI', 'ML', 'IoT'], 
+    enum: ['C', 'C++', 'Java', 'Python', 'JavaScript', 'React', 'MongoDB', 'MySQL', 'PostgreSQL', 'HTML/CSS', 'AI', 'ML', 'IoT', 'Cyber Security', 'Data Science', 'Data Structures'], 
     required: true 
   },
   category: { type: String, required: true },

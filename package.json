@@ -41,5 +41,14 @@
     "api"
   ],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orcadehub/lms-backend-all.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/orcadehub/lms-backend-all/issues"
+  },
+  "homepage": "https://github.com/orcadehub/lms-backend-all#readme"
 }
