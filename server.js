@@ -33,6 +33,7 @@ const labRoutes = require('./routes/labRoutes');
 const aiMockRoutes = require('./routes/aiMockRoutes');
 const e2bRoutes = require('./routes/e2bRoutes');
 const genaiQuestionRoutes = require('./routes/genaiQuestionRoutes');
+const certificateRoutes = require('./routes/certificateRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -131,6 +132,7 @@ app.use('/api/labs', labRoutes);
 app.use('/api/ai-mock', aiMockRoutes);
 app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
