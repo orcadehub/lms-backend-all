@@ -22,6 +22,7 @@ const {
   removeMongoDBQuestion,
   addSQLQuestion,
   removeSQLQuestion,
+  getMultiAssessmentReport,
 } = require('../controllers/assessmentController');
 const { auth } = require('../middleware/auth');
 
@@ -33,6 +34,9 @@ router.post('/', createAssessment);
 
 // GET /api/assessments - Get all assessments
 router.get('/', getAssessments);
+
+// POST /api/assessments/multi-report - Consolidated report across multiple assessments
+router.post('/multi-report', getMultiAssessmentReport);
 
 // GET /api/assessments/:id - Get assessment by ID
 router.get('/:id', getAssessmentById);

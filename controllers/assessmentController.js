@@ -941,6 +941,99 @@ const removeProgrammingQuestion = async (req, res) => {
   }
 };
 
+// Multi-assessment consolidated report
+const getMultiAssessmentReport = async (req, res) => {
+  try {
+    const { assessmentIds } = req.body;
+    const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const Student = require('../models/Student');
+    
+    if (!assessmentIds || !Array.isArray(assessmentIds) || assessmentIds.length === 0) {
+      return res.status(400).json({ message: 'Please provide at least one assessment ID' });
+    }
+    
+    // Fetch all selected assessments
+    const assessments = await Assessment.find({ _id: { $in: assessmentIds } }).select('title _id');
+    
+    // Build a map of assessment titles keyed by ID
+    const assessmentMap = {};
+    assessments.forEach(a => {
+      assessmentMap[a._id.toString()] = a.title;
+    });
+    
+    // Fetch all attempts for these assessments
+    const attempts = await AssessmentAttempt.find({ 
+      assessment: { $in: assessmentIds },
+      status: 'completed'
+    })
+    .populate('student', 'name email profile')
+    .lean();
+    
+    // Consolidate by student
+    // studentId -> { name, email, scores: { assessmentId: overallPercentage } }
+    const studentData = {};
+    
+    for (const attempt of attempts) {
+      if (!attempt.student) continue;
+      const sid = attempt.student._id.toString();
+      const aid = attempt.assessment.toString();
+      
+      if (!studentData[sid]) {
+        studentData[sid] = {
+          name: attempt.student.name,
+          email: attempt.student.email,
+          roll: attempt.student.email?.split('@')[0] || '-', // use email prefix as roll
+          scores: {}
+        };
+      }
+      
+      // Take the best attempt if multiple attempts exist
+      const existingScore = studentData[sid].scores[aid];
+      const newScore = attempt.overallPercentage || 0;
+      if (existingScore === undefined || newScore > existingScore) {
+        studentData[sid].scores[aid] = Math.round(newScore * 100) / 100;
+      }
+    }
+    
+    // Also find all students in the tenant who didn't attempt (for absent marking)
+    // Get tenant from first assessment
+    const firstAssessment = await Assessment.findById(assessmentIds[0]).select('tenantId');
+    let allStudents = [];
+    if (firstAssessment?.tenantId) {
+      allStudents = await Student.find({ tenant: firstAssessment.tenantId, isActive: true })
+        .select('name email profile')
+        .lean();
+      
+      // Add students who haven't attempted anything
+      for (const student of allStudents) {
+        const sid = student._id.toString();
+        if (!studentData[sid]) {
+          studentData[sid] = {
+            name: student.name,
+            email: student.email,
+            roll: student.email?.split('@')[0] || '-',
+            scores: {}
+          };
+        }
+      }
+    }
+    
+    // Build final rows sorted by name
+    const rows = Object.values(studentData).sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Return ordered assessment IDs and titles for column headers
+    const columns = assessmentIds.map(id => ({
+      id,
+      title: assessmentMap[id] || 'Unknown'
+    }));
+    
+    res.json({ columns, rows });
+  } catch (error) {
+    console.error('Error generating multi-assessment report:', error);
+    res.status(500).json({ message: 'Error generating report', error: error.message });
+  }
+};
+
 module.exports = {
   createAssessment,
   getAssessments,
@@ -967,5 +1060,6 @@ module.exports = {
   markAllInProgressResume,
   markAllInProgressRetake,
   markAllCompletedResume,
-  deleteAllAttempts
+  deleteAllAttempts,
+  getMultiAssessmentReport
 };
