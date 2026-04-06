@@ -5,13 +5,27 @@ const axios = require('axios');
 // Piston API configuration - Use environment variable or fallback to current hardcoded IP
 const PISTON_URL = process.env.PISTON_URL || 'http://65.0.185.100:2000';
 
+// Languages that need longer compile/run timeouts (JVM, compiled langs)
+const HEAVY_LANGUAGES = ['java', 'kotlin', 'c', 'c++', 'rust', 'go', 'typescript', 'fortran', 'd'];
+
 router.post('/execute', async (req, res) => {
-  console.log(`[Piston] Request received for language: ${req.body.language}`);
+  const lang = (req.body.language || '').toLowerCase();
+  console.log(`[Piston] Request received for language: ${lang}`);
   console.log(`[Piston] Targeting URL: ${PISTON_URL}/api/v2/execute`);
+
+  // Set generous timeouts for compiled/heavy languages
+  const isHeavy = HEAVY_LANGUAGES.includes(lang);
+  const requestBody = {
+    ...req.body,
+    compile_timeout: isHeavy ? 20000 : 10000,   // 20s compile for heavy, 10s default
+    run_timeout: isHeavy ? 10000 : 5000,         // 10s run for heavy, 5s default
+    compile_memory_limit: isHeavy ? 512000000 : 256000000, // 512MB / 256MB
+    run_memory_limit: 256000000                   // 256MB for all
+  };
   
   try {
-    const response = await axios.post(`${PISTON_URL}/api/v2/execute`, req.body, {
-      timeout: 20000, // 20 second timeout
+    const response = await axios.post(`${PISTON_URL}/api/v2/execute`, requestBody, {
+      timeout: 30000, // 30 second timeout
       headers: {
         'Content-Type': 'application/json'
       }
