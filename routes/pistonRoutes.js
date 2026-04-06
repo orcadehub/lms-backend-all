@@ -17,7 +17,7 @@ router.post('/execute', async (req, res) => {
   const requestBody = {
     ...req.body,
     compile_timeout: 10000,      // Max allowed by Piston server
-    run_timeout: 5000,           // 5s run timeout
+    run_timeout: 3000,           // Max allowed by Piston server
     compile_memory_limit: -1,    // No memory limit for compilation
     run_memory_limit: -1         // No memory limit for execution
   };
