@@ -27,10 +27,26 @@ router.post('/execute', async (req, res) => {
   let response = null;
   let lastError = null;
 
-  // Try each server starting from the current index
-  for (let i = 0; i < PISTON_SERVERS.length; i++) {
-    const serverIndex = (currentServerIndex + i) % PISTON_SERVERS.length;
-    const currentURL = PISTON_SERVERS[serverIndex];
+  // For Java, prioritize the highly-scaled node which has custom configurations
+  let serversToTry = [...PISTON_SERVERS];
+  if (lang === 'java' || HEAVY_LANGUAGES.includes(lang)) {
+    const uthoServerIdx = serversToTry.findIndex(url => url.includes('150.241.244.176'));
+    if (uthoServerIdx !== -1) {
+      // Move Utho container cluster to the very front for heavy executions
+      const uthoURL = serversToTry[uthoServerIdx];
+      serversToTry.splice(uthoServerIdx, 1);
+      serversToTry.unshift(uthoURL);
+    }
+  }
+
+  // Try each server
+  for (let i = 0; i < serversToTry.length; i++) {
+    // If not prioritizing (like Python), continue standard round robin
+    let serverIndex = i;
+    if (!(lang === 'java' || HEAVY_LANGUAGES.includes(lang))) {
+      serverIndex = (currentServerIndex + i) % serversToTry.length;
+    }
+    const currentURL = serversToTry[serverIndex];
     
     console.log(`[Piston] Targeting URL: ${currentURL}/api/v2/execute`);
     
