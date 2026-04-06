@@ -13,14 +13,13 @@ router.post('/execute', async (req, res) => {
   console.log(`[Piston] Request received for language: ${lang}`);
   console.log(`[Piston] Targeting URL: ${PISTON_URL}/api/v2/execute`);
 
-  // Set generous timeouts for compiled/heavy languages
-  const isHeavy = HEAVY_LANGUAGES.includes(lang);
+  // Set generous timeouts within Piston's server limits
   const requestBody = {
     ...req.body,
-    compile_timeout: isHeavy ? 20000 : 10000,   // 20s compile for heavy, 10s default
-    run_timeout: isHeavy ? 10000 : 5000,         // 10s run for heavy, 5s default
-    compile_memory_limit: isHeavy ? 512000000 : 256000000, // 512MB / 256MB
-    run_memory_limit: 256000000                   // 256MB for all
+    compile_timeout: 10000,      // Max allowed by Piston server
+    run_timeout: 5000,           // 5s run timeout
+    compile_memory_limit: -1,    // No memory limit for compilation
+    run_memory_limit: -1         // No memory limit for execution
   };
   
   try {
