@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 
 // Piston API configuration - Use environment variable or fallback to current hardcoded IP
-const PISTON_URL = process.env.PISTON_URL || 'http://52.66.57.225:2000';
+const PISTON_URL = process.env.PISTON_URL || 'http://65.0.185.100:2000';
 
 router.post('/execute', async (req, res) => {
   console.log(`[Piston] Request received for language: ${req.body.language}`);
