@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
-// Piston API configuration - Use environment variable or fallback to current hardcoded IP
-const PISTON_URL = process.env.PISTON_URL || 'http://150.241.244.176:2000';
+// Piston API configuration - Array of fallback servers
+const PISTON_SERVERS = (process.env.PISTON_URLS || 'http://150.241.244.176:2000,http://65.0.185.100:2000,http://52.66.57.225:2000').split(',');
+
+let currentServerIndex = 0;
 
 // Languages that need longer compile/run timeouts (JVM, compiled langs)
 const HEAVY_LANGUAGES = ['java', 'kotlin', 'c', 'c++', 'rust', 'go', 'typescript', 'fortran', 'd'];
@@ -11,7 +13,6 @@ const HEAVY_LANGUAGES = ['java', 'kotlin', 'c', 'c++', 'rust', 'go', 'typescript
 router.post('/execute', async (req, res) => {
   const lang = (req.body.language || '').toLowerCase();
   console.log(`[Piston] Request received for language: ${lang}`);
-  console.log(`[Piston] Targeting URL: ${PISTON_URL}/api/v2/execute`);
 
   // Set generous timeouts within Piston's server limits
   const requestBody = {
@@ -22,37 +23,54 @@ router.post('/execute', async (req, res) => {
     run_memory_limit: -1         // No memory limit for execution
   };
   
-  try {
-    const response = await axios.post(`${PISTON_URL}/api/v2/execute`, requestBody, {
-      timeout: 30000, // 30 second timeout
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log(`[Piston] Success: Status ${response.status}`);
-    res.json(response.data);
-  } catch (error) {
-    const errorMsg = error.response ? 
-      `Status ${error.response.status}: ${JSON.stringify(error.response.data)}` : 
-      error.message;
-    
-    console.error(`[Piston] Error: ${errorMsg}`);
-    
-    // Provide more helpful error messages for common connection issues
-    let userMessage = 'Piston code execution failed';
-    if (error.code === 'ECONNREFUSED') {
-      userMessage = `Connection refused at ${PISTON_URL}. Please ensure the Piston server is running and port 2000 is open in AWS Lightsail firewall.`;
-    } else if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
-      userMessage = `Connection timed out at ${PISTON_URL}. Please check your server's network settings.`;
-    } else if (error.code === 'ENOTFOUND') {
-      userMessage = `Piston server address ${PISTON_URL} not found. Please check the IP.`;
-    }
+  let success = false;
+  let response = null;
+  let lastError = null;
 
+  // Try each server starting from the current index
+  for (let i = 0; i < PISTON_SERVERS.length; i++) {
+    const serverIndex = (currentServerIndex + i) % PISTON_SERVERS.length;
+    const currentURL = PISTON_SERVERS[serverIndex];
+    
+    console.log(`[Piston] Targeting URL: ${currentURL}/api/v2/execute`);
+    
+    try {
+      response = await axios.post(`${currentURL}/api/v2/execute`, requestBody, {
+        timeout: 30000, // 30 second timeout per request
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`[Piston] Success on ${currentURL}: Status ${response.status}`);
+      
+      // Update global index to round-robin for the next incoming request
+      currentServerIndex = (serverIndex + 1) % PISTON_SERVERS.length;
+      success = true;
+      break; 
+    } catch (error) {
+      const errorMsg = error.response ? 
+        `Status ${error.response.status}: ${JSON.stringify(error.response.data)}` : 
+        error.message;
+      
+      console.error(`[Piston] Error on ${currentURL}: ${errorMsg}`);
+      lastError = error;
+    }
+  }
+  
+  if (success) {
+    res.json(response.data);
+  } else {
+    // All servers failed
+    console.error(`[Piston] All ${PISTON_SERVERS.length} servers failed to execute the request.`);
+    const errorMsg = lastError?.response ? 
+      `Status ${lastError.response.status}: ${JSON.stringify(lastError.response.data)}` : 
+      lastError?.message || 'Unknown error';
+      
     res.status(500).json({ 
-      error: userMessage,
+      error: 'All Piston execution servers are currently unavailable. Please try again later.',
       details: errorMsg,
-      code: error.code || 'UNKNOWN'
+      code: lastError?.code || 'UNKNOWN'
     });
   }
 });
