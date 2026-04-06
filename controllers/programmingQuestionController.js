@@ -1,4 +1,4 @@
-const ProgrammingQuestion = require('../models/ProgrammingQuestion');
+const AssessmentQuestion = require('../models/AssessmentQuestion');
 
 const programmingQuestionController = {
   // Get all topics with question counts
@@ -11,8 +11,8 @@ const programmingQuestionController = {
         'HashMap', 'Stack', 'Queue'
       ];
       
-      const topics = await ProgrammingQuestion.aggregate([
-        { $match: { isActive: true } },
+      const topics = await AssessmentQuestion.aggregate([
+        { $match: { assessmentType: 'programming', isActive: true } },
         { $group: { _id: '$topic', count: { $sum: 1 } } },
         { $project: { topic: '$_id', count: 1, _id: 0 } }
       ]);
@@ -35,8 +35,9 @@ const programmingQuestionController = {
   getQuestionsByTopic: async (req, res) => {
     try {
       const { topic } = req.params;
-      const questions = await ProgrammingQuestion.find({ 
+      const questions = await AssessmentQuestion.find({ 
         topic, 
+        assessmentType: 'programming',
         isActive: true 
       }).select('title description difficulty tags');
       res.json(questions);
@@ -49,7 +50,7 @@ const programmingQuestionController = {
   getQuestionById: async (req, res) => {
     try {
       const { id } = req.params;
-      const question = await ProgrammingQuestion.findById(id);
+      const question = await AssessmentQuestion.findById(id);
       if (!question) {
         return res.status(404).json({ message: 'Question not found' });
       }
@@ -70,7 +71,7 @@ const programmingQuestionController = {
       // Extract instructor ID from token (provided by auth middleware)
       const instructorId = req.user.id || req.user._id;
 
-      const newQuestion = new ProgrammingQuestion({
+      const newQuestion = new AssessmentQuestion({
         title,
         description,
         difficulty,

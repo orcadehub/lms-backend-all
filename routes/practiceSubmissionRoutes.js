@@ -112,12 +112,12 @@ router.get('/completed', auth, async (req, res) => {
 router.get('/stats', auth, async (req, res) => {
   try {
     const solvedCount = await PracticeSubmission.countDocuments({ userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true });
-    const totalQuestions = await ProgrammingQuestion.countDocuments({ isActive: true });
+    const totalQuestions = await AssessmentQuestion.countDocuments({ assessmentType: 'programming', isActive: true });
     
     // Aggregate by topic name since topicId might not be consistent
     const topicStats = await PracticeSubmission.aggregate([
       { $match: { userId: new mongoose.Types.ObjectId(req.user.id), isCompleted: true } },
-      { $lookup: { from: 'programmingquestions', localField: 'questionId', foreignField: '_id', as: 'q' } },
+      { $lookup: { from: 'assessmentquestions', localField: 'questionId', foreignField: '_id', as: 'q' } },
       { $unwind: '$q' },
       { $group: { _id: '$q.topic', solvedCount: { $sum: 1 } } }
     ]);

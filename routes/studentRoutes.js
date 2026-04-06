@@ -43,6 +43,9 @@ router.post('/bulk-upload', auth, checkPermission('manage_students'), upload.sin
 // Delete student (instructor only)
 router.delete('/:id', auth, checkPermission('manage_students'), studentController.deleteStudent);
 
+// Bulk reset passwords (instructor only)
+router.post('/bulk-reset-password', auth, checkPermission('manage_students'), studentController.bulkResetPasswords);
+
 // Student profile routes (student only)
 router.get('/profile', auth, studentController.getProfile);
 router.post('/connect-coding-profiles', auth, studentController.connectCodingProfiles);

@@ -25,6 +25,7 @@ const assessmentQuestionSchema = new mongoose.Schema({
     keyInsights: { type: [String], required: true },
     algorithmSteps: { type: [String], required: true }
   },
+  topic: { type: String },
   isActive: { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Instructor', required: true }
 }, { timestamps: true });

@@ -946,7 +946,6 @@ const getMultiAssessmentReport = async (req, res) => {
   try {
     const { assessmentIds } = req.body;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
-    const Student = require('../models/Student');
     
     if (!assessmentIds || !Array.isArray(assessmentIds) || assessmentIds.length === 0) {
       return res.status(400).json({ message: 'Please provide at least one assessment ID' });
@@ -964,13 +963,13 @@ const getMultiAssessmentReport = async (req, res) => {
     // Fetch all attempts for these assessments
     const attempts = await AssessmentAttempt.find({ 
       assessment: { $in: assessmentIds },
-      status: 'completed'
+      attemptStatus: { $in: ['COMPLETED', 'AUTO_SUBMITTED'] }
     })
     .populate('student', 'name email profile')
     .lean();
     
     // Consolidate by student
-    // studentId -> { name, email, scores: { assessmentId: overallPercentage } }
+    // studentId -> { name, email, roll, scores: { assessmentId: overallPercentage } }
     const studentData = {};
     
     for (const attempt of attempts) {
@@ -995,31 +994,27 @@ const getMultiAssessmentReport = async (req, res) => {
       }
     }
     
-    // Also find all students in the tenant who didn't attempt (for absent marking)
-    // Get tenant from first assessment
-    const firstAssessment = await Assessment.findById(assessmentIds[0]).select('tenantId');
-    let allStudents = [];
-    if (firstAssessment?.tenantId) {
-      allStudents = await Student.find({ tenant: firstAssessment.tenantId, isActive: true })
-        .select('name email profile')
-        .lean();
-      
-      // Add students who haven't attempted anything
-      for (const student of allStudents) {
-        const sid = student._id.toString();
-        if (!studentData[sid]) {
-          studentData[sid] = {
-            name: student.name,
-            email: student.email,
-            roll: student.email?.split('@')[0] || '-',
-            scores: {}
-          };
-        }
+    // Calculate average for each student based only on attempted assessments
+    Object.keys(studentData).forEach(sid => {
+      const student = studentData[sid];
+      const scores = Object.values(student.scores);
+      if (scores.length > 0) {
+        const total = scores.reduce((sum, score) => sum + score, 0);
+        student.averageScore = Math.round((total / scores.length) * 100) / 100;
+      } else {
+        student.averageScore = 0;
       }
-    }
+    });
     
-    // Build final rows sorted by name
-    const rows = Object.values(studentData).sort((a, b) => a.name.localeCompare(b.name));
+    // Build final rows sorted by average score (descending), then by name (ascending)
+    const rows = Object.values(studentData).sort((a, b) => {
+      // Sort by average score descending
+      if (b.averageScore !== a.averageScore) {
+        return b.averageScore - a.averageScore;
+      }
+      // Then by name ascending
+      return a.name.localeCompare(b.name);
+    });
     
     // Return ordered assessment IDs and titles for column headers
     const columns = assessmentIds.map(id => ({

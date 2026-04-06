@@ -11,7 +11,7 @@ router.post('/execute', async (req, res) => {
   
   try {
     const response = await axios.post(`${PISTON_URL}/api/v2/execute`, req.body, {
-      timeout: 10000, // 10 second timeout
+      timeout: 20000, // 20 second timeout
       headers: {
         'Content-Type': 'application/json'
       }

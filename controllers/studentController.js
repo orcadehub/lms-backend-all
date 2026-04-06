@@ -352,6 +352,34 @@ const studentController = {
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
+  },
+
+  // Bulk reset passwords for all students in a tenant
+  bulkResetPasswords: async (req, res) => {
+    try {
+      const { tenantId, newPassword } = req.body;
+      const selectedTenantId = tenantId || req.user.assignedTenants[0];
+
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters' });
+      }
+
+      const students = await Student.find({ tenant: selectedTenantId });
+      
+      if (students.length === 0) {
+        return res.status(404).json({ message: 'No students found for this tenant' });
+      }
+
+      // We use save() in a loop to trigger the password hashing pre-save hook
+      for (const student of students) {
+        student.password = newPassword;
+        await student.save();
+      }
+
+      res.json({ message: `Successfully reset passwords for ${students.length} students.` });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 };
 
