@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 
 // Piston API configuration - Use environment variable or fallback to current hardcoded IP
-const PISTON_URL = process.env.PISTON_URL || 'http://65.0.185.100:2000';
+const PISTON_URL = process.env.PISTON_URL || 'http://150.241.244.176:2000';
 
 // Languages that need longer compile/run timeouts (JVM, compiled langs)
 const HEAVY_LANGUAGES = ['java', 'kotlin', 'c', 'c++', 'rust', 'go', 'typescript', 'fortran', 'd'];
