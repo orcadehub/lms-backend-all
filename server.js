@@ -134,6 +134,14 @@ app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
 app.use('/api/certificates', certificateRoutes);
 
+// Free Fire Routes
+app.use('/api/ff/auth', require('./ff/routes/auth'));
+app.use('/api/ff/tournaments', require('./ff/routes/tournaments'));
+app.use('/api/ff/player', require('./ff/routes/player'));
+app.use('/api/ff/payments', require('./ff/routes/payments'));
+app.use('/api/ff/moderators', require('./ff/routes/moderators'));
+app.use('/api/ff/support', require('./ff/routes/support'));
+
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
   res.json({
@@ -338,6 +346,21 @@ app.get('/api/server-time', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
+  socket.on('join_tournament', (tournamentId) => {
+    socket.join(tournamentId);
+    console.log(`Socket ${socket.id} joined tournament ${tournamentId}`);
+  });
+
+  socket.on('join_user', (userId) => {
+    socket.join(userId);
+    console.log(`Socket ${socket.id} joined personal room ${userId}`);
+  });
+
+  socket.on('update_score', (data) => {
+    // Expected data: { tournamentId, playerUid, kills, rank }
+    io.to(data.tournamentId).emit('leaderboard_update', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
@@ -353,4 +376,10 @@ app.use('*', (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Free Fire Background Job: Auto-update Tournament Statuses
+  const { updateTournamentStatuses } = require('./ff/utils/TournamentStatusManager');
+  setInterval(() => {
+    updateTournamentStatuses(io);
+  }, 60000); // Check Every 1 Minute
 });
