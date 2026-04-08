@@ -64,7 +64,9 @@ app.use(cors({
     'http://seedingminds.co.in',
     'https://seedingminds.co.in',
     'https://orcadehub.in',
-    'http://orcadehub.in'
+    'http://orcadehub.in',
+    'https://fftourney.com',
+    'http://fftourney.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
