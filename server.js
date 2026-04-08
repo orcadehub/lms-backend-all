@@ -66,7 +66,9 @@ app.use(cors({
     'https://orcadehub.in',
     'http://orcadehub.in',
     'https://fftourney.com',
-    'http://fftourney.com'
+    'http://fftourney.com',
+    'https://www.fftourney.com',
+    'http://www.fftourney.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
