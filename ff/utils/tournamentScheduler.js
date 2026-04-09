@@ -75,7 +75,7 @@ function createMatchObject(startTime, mode, teamSize, ddmmyyyy, entryFee, creato
         roomCode: 'TBD',
         password: 'TBD',
         entryFee,
-        prizePool: Math.floor(entryFee * maxPlayers * 0.8),
+        prizePool: Math.floor(entryFee * maxPlayers * 0.9),
         gameMode: mode,
         teamSize,
         status: 'Upcoming',

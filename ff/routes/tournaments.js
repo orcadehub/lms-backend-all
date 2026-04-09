@@ -20,7 +20,7 @@ router.post('/', auth, async (req, res) => {
       startTime,
       maxPlayers,
       creator: req.user._id,
-      prizePool: entryFee * maxPlayers * 0.85 // 15% platform fee assumption
+      prizePool: entryFee * maxPlayers * 0.9 // 10% platform fee
     });
     
     await tournament.save();

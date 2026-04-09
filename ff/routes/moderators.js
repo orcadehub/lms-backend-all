@@ -124,7 +124,7 @@ router.post('/tournaments', adminAuth, async (req, res) => {
       startTime: startTime || new Date(Date.now() + 3600000), // Default 1 hr from now
       maxPlayers: maxPlayers || 48,
       creator: req.moderator.id,
-      prizePool: req.body.prizePool !== undefined ? req.body.prizePool : (entryFee || 0) * (maxPlayers || 48) * 0.8 // use body prizePool or 80% of total entry collection
+      prizePool: req.body.prizePool !== undefined ? req.body.prizePool : (entryFee || 0) * (maxPlayers || 48) * 0.9 // use body prizePool or 90% of total entry collection
     });
     
     await tournament.save();
