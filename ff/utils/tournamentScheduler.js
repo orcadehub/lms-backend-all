@@ -30,21 +30,19 @@ async function generateDailyMatches(dateInIST = new Date()) {
         const ddmmyyyy = `${d}${m}${y}`;
 
         const matches = [];
-        const entryFee = 10;
         
         for (let hour = 9; hour <= 23; hour++) {
+            // Calculate IST-based hourly entry fee: Rotate 10, 20, 30 every 3 hours
+            const entryFee = ((hour - 9) % 3 + 1) * 10;
+
             // Calculate UTC equivalent of 'hour:00' IST on that day
             const startTimeUTC = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), hour, 0, 0));
-            startTimeUTC.setMinutes(startTimeUTC.getMinutes() - 330); // Subtract 5h 30m to get UTC
+            startTimeUTC.setMinutes(startTimeUTC.getMinutes() - 330); // Subtract 5h 30m
 
             const formats = ['1v1', '2v2', '4v4'];
-            
-            // Create 3 Classic matches (1v1, 2v2, 4v4) per hour
             formats.forEach(teamSize => {
                 matches.push(createMatchObject(startTimeUTC, 'Classic', teamSize, ddmmyyyy, entryFee, moderator._id));
             });
-
-            // Create 3 Clash Squad matches (1v1, 2v2, 4v4) per hour
             formats.forEach(teamSize => {
                 matches.push(createMatchObject(startTimeUTC, 'Clash Squad', teamSize, ddmmyyyy, entryFee, moderator._id));
             });
