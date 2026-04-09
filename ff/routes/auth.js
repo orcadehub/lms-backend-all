@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const FFUser = require('../models/FFUser');
+const FFTransaction = require('../models/FFTransaction');
 const auth = require('../middleware/auth');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -120,10 +121,20 @@ router.post('/register', async (req, res) => {
       stats,
       ffData,
       other,
-      isBanned
+      isBanned,
+      walletBalance: 20 // Signup Bonus
     });
 
     await user.save();
+
+    // Create bonus transaction record
+    await new FFTransaction({
+      user: user._id,
+      type: 'CREDIT',
+      amount: 20,
+      description: 'Signup Bonus',
+      status: 'Success'
+    }).save();
     
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user });
@@ -187,9 +198,20 @@ router.post('/google', async (req, res) => {
         googleId,
         email,
         inGameName: name || 'New Player',
-        other: { googlePicture: picture }
+        other: { googlePicture: picture },
+        walletBalance: 20 // Signup Bonus
       });
       await user.save();
+      
+      // Create bonus transaction record
+      await new FFTransaction({
+        user: user._id,
+        type: 'CREDIT',
+        amount: 20,
+        description: 'Signup Bonus',
+        status: 'Success'
+      }).save();
+
       console.log(`[Auth] New User created via Google: ${email}`);
     } else {
       // Login: Update googleId if missing
