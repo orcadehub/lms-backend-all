@@ -5,31 +5,12 @@ const FFPayment = require('../models/FFPayment');
 const auth = require('../middleware/auth');
 const { StandardCheckoutClient, Env, StandardCheckoutPayRequest } = require('@phonepe-pg/pg-sdk-node');
 
-const PHONEPE_CLIENT_ID = process.env.PHONEPE_MID;
-const PHONEPE_CLIENT_SECRET = process.env.PHONEPE_SALT_KEY;
-const clientVersion = 1;
+const PHONEPE_MID = process.env.PHONEPE_MID;
+const SALT_KEY = process.env.PHONEPE_SALT_KEY;
+const SALT_INDEX = process.env.PHONEPE_SALT_INDEX || 1;
 
-// Determine environment 
-const isSandbox = process.env.PHONEPE_UAT_URL?.includes('sandbox') || 
-                  PHONEPE_CLIENT_ID?.includes('_') || 
-                  PHONEPE_CLIENT_ID === 'PGTESTPAYUAT';
-
-const currentEnv = isSandbox ? Env.SANDBOX : Env.PRODUCTION;
-
-let phonepeClient;
-try {
-    if (PHONEPE_CLIENT_ID && PHONEPE_CLIENT_SECRET) {
-        phonepeClient = StandardCheckoutClient.getInstance(
-            PHONEPE_CLIENT_ID, 
-            PHONEPE_CLIENT_SECRET, 
-            clientVersion, 
-            currentEnv
-        );
-        console.log(`PhonePe initialized in ${currentEnv} mode`);
-    }
-} catch (err) {
-    console.error("Failed to initialize PhonePe SDK", err);
-}
+// Base URL for PhonePe Production
+const PHONEPE_BASE_URL = "https://api.phonepe.com/apis/hermes/pg/v1/pay";
 
 // Create PhonePe Payment Request
 router.post('/recharge', auth, async (req, res) => {
@@ -38,23 +19,46 @@ router.post('/recharge', auth, async (req, res) => {
         return res.status(400).json({ error: 'Minimum recharge is ₹100' });
     }
 
-    if (!phonepeClient) return res.status(500).json({ error: 'PhonePe Gateway not configured' });
+    if (!PHONEPE_MID || !SALT_KEY) {
+        return res.status(500).json({ error: 'PhonePe Gateway not configured' });
+    }
 
     const merchantTransactionId = `MT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const userId = req.user._id;
+
+    // Build the payload
+    const payload = {
+        merchantId: PHONEPE_MID,
+        merchantTransactionId: merchantTransactionId,
+        merchantUserId: `U${userId}`,
+        amount: amount * 100, // paise
+        redirectUrl: `${process.env.FRONTEND_URL}/payment-status?id=${merchantTransactionId}`,
+        redirectMode: "REDIRECT",
+        callbackUrl: `${process.env.BACKEND_URL || 'https://backend.orcode.in'}/api/ff/payments/webhook`,
+        paymentInstrument: {
+            type: "PAY_PAGE"
+        }
+    };
 
     try {
-        const request = StandardCheckoutPayRequest.builder()
-            .merchantOrderId(merchantTransactionId)
-            .amount(amount * 100) // SDK expects paise
-            .redirectUrl(`${process.env.FRONTEND_URL}/payment-status?id=${merchantTransactionId}`)
-            .build();
+        const base64Str = Buffer.from(JSON.stringify(payload)).toString("base64");
+        const signStr = base64Str + "/pg/v1/pay" + SALT_KEY;
+        const checksum = crypto.createHash("sha256").update(signStr).digest("hex") + "###" + SALT_INDEX;
 
-        const response = await phonepeClient.pay(request);
+        const axios = require('axios');
+        const response = await axios.post(PHONEPE_BASE_URL, {
+            request: base64Str
+        }, {
+            headers: {
+                "Content-Type": "application/json",
+                "X-VERIFY": checksum
+            }
+        });
 
-        if (response && response.redirectUrl) {
+        if (response.data.success && response.data.data.instrumentResponse.redirectInfo.url) {
             await new FFPayment({
                 user: req.user._id,
-                gatewayOrderId: merchantTransactionId,
+                gatewayOrderId: response.data.data.merchantTransactionId,
                 merchantTransactionId: merchantTransactionId,
                 amount: amount,
                 gateway: 'PhonePe',
@@ -63,14 +67,17 @@ router.post('/recharge', auth, async (req, res) => {
 
             res.json({
                 success: true,
-                redirectUrl: response.redirectUrl
+                redirectUrl: response.data.data.instrumentResponse.redirectInfo.url
             });
         } else {
-            res.status(500).json({ error: 'PhonePe initialization failed' });
+            res.status(500).json({ error: 'PhonePe initialization failed', details: response.data.message });
         }
     } catch (err) {
-        console.error('PhonePe Error:', err.message || err);
-        res.status(500).json({ error: 'Failed to initiate payment', details: err.message });
+        console.error('PhonePe Error:', err.response?.data || err.message);
+        res.status(500).json({ 
+            error: 'Failed to initiate payment', 
+            details: err.response?.data?.message || err.message 
+        });
     }
 });
 
@@ -78,17 +85,27 @@ router.post('/recharge', auth, async (req, res) => {
 router.post('/verify', auth, async (req, res) => {
     const { merchantTransactionId } = req.body;
     if (!merchantTransactionId) return res.status(400).json({ error: 'Missing Transaction ID' });
-    if (!phonepeClient) return res.status(500).json({ error: 'PhonePe Gateway not configured' });
 
     try {
-        const response = await phonepeClient.getOrderStatus(merchantTransactionId);
-        
+        // Build Verification URL
+        const signStr = `/pg/v1/status/${PHONEPE_MID}/${merchantTransactionId}${SALT_KEY}`;
+        const checksum = crypto.createHash("sha256").update(signStr).digest("hex") + "###" + SALT_INDEX;
+
+        const axios = require('axios');
+        const response = await axios.get(`https://api.phonepe.com/apis/hermes/pg/v1/status/${PHONEPE_MID}/${merchantTransactionId}`, {
+            headers: {
+                "Content-Type": "application/json",
+                "X-VERIFY": checksum,
+                "X-MERCHANT-ID": PHONEPE_MID
+            }
+        });
+
         // SDK returns the state (e.g. COMPLETED, PENDING, FAILED)
-        if (response && response.state === "COMPLETED") {
+        if (response.data.success && response.data.code === "PAYMENT_SUCCESS") {
             // Atomic update to prevent race conditions from duplicate verify calls (e.g. React Strict Mode)
             const payment = await FFPayment.findOneAndUpdate(
                 { merchantTransactionId, status: { $ne: 'Success' } },
-                { status: 'Success', gatewayPaymentId: response.transactionId || merchantTransactionId },
+                { status: 'Success', gatewayPaymentId: response.data.data.transactionId || merchantTransactionId },
                 { new: false } // Returns the document state BEFORE the update
             );
 
@@ -118,11 +135,12 @@ router.post('/verify', auth, async (req, res) => {
             // If payment is null, it was either already 'Success' or didn't exist. Safely ignore.
             return res.json({ success: true, alreadyProcessed: true });
         } else {
-            res.status(400).json({ error: 'Payment failed or pending' });
+            console.log('Payment Not Success:', response.data);
+            res.status(400).json({ error: 'Payment failed or pending', details: response.data.message });
         }
     } catch (err) {
-        console.error('PhonePe Status Error:', err.message || err);
-        res.status(500).json({ error: 'Verification error', details: err.message });
+        console.error('PhonePe Status Error:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Verification error', details: err.response?.data?.message || err.message });
     }
 });
 
