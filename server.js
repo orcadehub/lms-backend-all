@@ -383,6 +383,10 @@ server.listen(PORT, () => {
   
   // Free Fire Background Job: Auto-update Tournament Statuses
   const { updateTournamentStatuses } = require('./ff/utils/TournamentStatusManager');
+  const { initTournamentScheduler } = require('./ff/utils/tournamentScheduler');
+
+  initTournamentScheduler();
+
   setInterval(() => {
     updateTournamentStatuses(io);
   }, 60000); // Check Every 1 Minute
