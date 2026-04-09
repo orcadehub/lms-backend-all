@@ -5,19 +5,27 @@ const FFPayment = require('../models/FFPayment');
 const auth = require('../middleware/auth');
 const { StandardCheckoutClient, Env, StandardCheckoutPayRequest } = require('@phonepe-pg/pg-sdk-node');
 
-const PHONEPE_MID = process.env.PHONEPE_MID;
-const SALT_KEY = process.env.PHONEPE_SALT_KEY;
+const PHONEPE_CLIENT_ID = process.env.PHONEPE_MID;
+const PHONEPE_CLIENT_SECRET = process.env.PHONEPE_SALT_KEY;
 const clientVersion = 1;
 
 // Determine environment 
-const currentEnv = process.env.PHONEPE_UAT_URL?.includes('sandbox') || PHONEPE_MID?.includes('_') 
-    ? Env.SANDBOX 
-    : Env.PRODUCTION;
+const isSandbox = process.env.PHONEPE_UAT_URL?.includes('sandbox') || 
+                  PHONEPE_CLIENT_ID?.includes('_') || 
+                  PHONEPE_CLIENT_ID === 'PGTESTPAYUAT';
+
+const currentEnv = isSandbox ? Env.SANDBOX : Env.PRODUCTION;
 
 let phonepeClient;
 try {
-    if (PHONEPE_MID && SALT_KEY) {
-        phonepeClient = StandardCheckoutClient.getInstance(PHONEPE_MID, SALT_KEY, clientVersion, currentEnv);
+    if (PHONEPE_CLIENT_ID && PHONEPE_CLIENT_SECRET) {
+        phonepeClient = StandardCheckoutClient.getInstance(
+            PHONEPE_CLIENT_ID, 
+            PHONEPE_CLIENT_SECRET, 
+            clientVersion, 
+            currentEnv
+        );
+        console.log(`PhonePe initialized in ${currentEnv} mode`);
     }
 } catch (err) {
     console.error("Failed to initialize PhonePe SDK", err);
