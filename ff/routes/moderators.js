@@ -80,7 +80,7 @@ const adminAuth = (req, res, next) => {
 // Get ALL tournaments for admin
 router.get('/tournaments', adminAuth, async (req, res) => {
   try {
-    const tournaments = await FFTournament.find().sort({ startTime: -1 });
+    const tournaments = await FFTournament.find().sort({ startTime: 1 });
     res.json(tournaments);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
