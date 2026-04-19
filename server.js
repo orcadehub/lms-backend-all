@@ -54,25 +54,34 @@ app.set('io', io);
 const PORT = process.env.PORT || 4000;
 
 // Middleware
+// Dynamic CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001', 
+  'https://orcode.in',
+  'https://orcadehub.in',
+  'https://seedingminds.co.in',
+  'http://seedingminds.co.in',
+  'https://backend.orcode.in',
+  'https://instructor.orcode.in',
+  'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:3001', 
-    'https://orcode.in',
-    'http://orcode.in.s3-website.ap-south-2.amazonaws.com',
-    'http://seedingminds.co.in',
-    'https://seedingminds.co.in',
-    'https://orcadehub.in',
-    'http://orcadehub.in',
-    'https://fftourney.com',
-    'http://fftourney.com',
-    'https://www.fftourney.com',
-    'http://www.fftourney.com'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.orcode.in') || origin.endsWith('.seedingminds.co.in')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id', 'x-requested-with', 'Accept']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb', parameterLimit: 50000 }));
@@ -89,8 +98,8 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/lms', {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 1,
-      minPoolSize: 0,
+      maxPoolSize: 100, // Crucial for high traffic
+      minPoolSize: 10,  // Keep base connections ready
       maxIdleTimeMS: 30000,
       retryWrites: true
     });
@@ -137,14 +146,6 @@ app.use('/api/ai-mock', aiMockRoutes);
 app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
 app.use('/api/certificates', certificateRoutes);
-
-// Free Fire Routes
-app.use('/api/ff/auth', require('./ff/routes/auth'));
-app.use('/api/ff/tournaments', require('./ff/routes/tournaments'));
-app.use('/api/ff/player', require('./ff/routes/player'));
-app.use('/api/ff/payments', require('./ff/routes/payments'));
-app.use('/api/ff/moderators', require('./ff/routes/moderators'));
-app.use('/api/ff/support', require('./ff/routes/support'));
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
@@ -350,19 +351,9 @@ app.get('/api/server-time', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
-  socket.on('join_tournament', (tournamentId) => {
-    socket.join(tournamentId);
-    console.log(`Socket ${socket.id} joined tournament ${tournamentId}`);
-  });
-
   socket.on('join_user', (userId) => {
     socket.join(userId);
     console.log(`Socket ${socket.id} joined personal room ${userId}`);
-  });
-
-  socket.on('update_score', (data) => {
-    // Expected data: { tournamentId, playerUid, kills, rank }
-    io.to(data.tournamentId).emit('leaderboard_update', data);
   });
 
   socket.on('disconnect', () => {
@@ -380,14 +371,4 @@ app.use('*', (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  
-  // Free Fire Background Job: Auto-update Tournament Statuses
-  const { updateTournamentStatuses } = require('./ff/utils/TournamentStatusManager');
-  const { initTournamentScheduler } = require('./ff/utils/tournamentScheduler');
-
-  initTournamentScheduler();
-
-  setInterval(() => {
-    updateTournamentStatuses(io);
-  }, 60000); // Check Every 1 Minute
 });
