@@ -5,27 +5,30 @@ const programmingQuestionController = {
   getProgrammingTopics: async (req, res) => {
     try {
       const topicOrder = [
-        'Inputs', 'Operators', 'Basic Conditions', 'Nested Conditions', 'Loops', 
-        'Nested Loops', 'Pattern Printing', 'Arrays', 'Strings', '2D Arrays', 
-        'Two Pointers', 'Sliding Window Fixed', 'Sliding Window Variable', 
-        'HashMap', 'Stack', 'Queue'
+        'Inputs', 'Operators', 'Conditions', 'Nested Conditions', 'Loops', 
+        'While Loop', 'Nested Loops', 'Pattern Printing', 'Arrays', 'Strings', 
+        '2D Arrays', 'Functions', 'Class & Objects', 'Recursion', 'Hashing',
+        'Two Pointers', 'Sliding Window', 'Linked List', 'Stack', 'Queue', 
+        'Binary Search', 'Bit Manipulation', 'Tree', 'Graph', 'Backtracking',
+        'Dynamic Programming', 'Greedy'
       ];
       
-      const topics = await AssessmentQuestion.aggregate([
+      const questionCounts = await AssessmentQuestion.aggregate([
         { $match: { assessmentType: 'programming', isActive: true } },
-        { $group: { _id: '$topic', count: { $sum: 1 } } },
-        { $project: { topic: '$_id', count: 1, _id: 0 } }
+        { $group: { _id: '$topic', count: { $sum: 1 } } }
       ]);
       
-      const sortedTopics = topics.sort((a, b) => {
-        const indexA = topicOrder.indexOf(a.topic);
-        const indexB = topicOrder.indexOf(b.topic);
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
+      const countsMap = {};
+      questionCounts.forEach(item => {
+        countsMap[item._id] = item.count;
       });
       
-      res.json(sortedTopics);
+      const allTopics = topicOrder.map(topicName => ({
+        topic: topicName,
+        count: countsMap[topicName] || 0
+      }));
+      
+      res.json(allTopics);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }

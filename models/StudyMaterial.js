@@ -19,6 +19,10 @@ const studyMaterialSchema = new mongoose.Schema({
   category: { type: String, required: true },
   estimatedDuration: String,
   chapters: [chapterSchema],
+  tenant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant'
+  },
   isActive: { type: Boolean, default: true }
 }, {
   timestamps: true

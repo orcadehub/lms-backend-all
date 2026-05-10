@@ -174,6 +174,30 @@ const studentController = {
     }
   },
 
+  // Update student profile (for students themselves)
+  updateProfile: async (req, res) => {
+    try {
+      const { name, phone, address } = req.body;
+      const student = await Student.findById(req.user.id);
+
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+
+      if (name) student.name = name;
+      
+      if (!student.profile) student.profile = {};
+      if (phone !== undefined) student.profile.phone = phone;
+      if (address !== undefined) student.profile.address = address;
+
+      await student.save();
+
+      res.json({ message: 'Profile updated successfully', student: student.toJSON() });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
   // Connect coding profiles
   connectCodingProfiles: async (req, res) => {
     try {
@@ -342,6 +366,44 @@ const studentController = {
             badges: 0,
             rank: 'N/A',
             score: 0,
+            lastSynced: new Date()
+          };
+        }
+      }
+
+      // Fetch CodeChef stats
+      if (codechefUsername) {
+        try {
+          const ccResponse = await fetch(`https://codechef-api.vercel.app/${codechefUsername}`);
+          const ccData = await ccResponse.json();
+          
+          if (ccData.success) {
+            student.codingProfiles.codechef = {
+              username: codechefUsername,
+              connected: true,
+              rating: ccData.currentRating || 0,
+              globalRank: ccData.globalRank || 0,
+              stars: ccData.stars || '0★',
+              lastSynced: new Date()
+            };
+          } else {
+            student.codingProfiles.codechef = {
+              username: codechefUsername,
+              connected: true,
+              rating: 0,
+              globalRank: 0,
+              stars: '0★',
+              lastSynced: new Date()
+            };
+          }
+        } catch (error) {
+          console.error('CodeChef fetch error:', error);
+          student.codingProfiles.codechef = {
+            username: codechefUsername,
+            connected: true,
+            rating: 0,
+            globalRank: 0,
+            stars: '0★',
             lastSynced: new Date()
           };
         }

@@ -48,6 +48,7 @@ router.post('/bulk-reset-password', auth, checkPermission('manage_students'), st
 
 // Student profile routes (student only)
 router.get('/profile', auth, studentController.getProfile);
+router.put('/update-profile', auth, studentController.updateProfile);
 router.post('/connect-coding-profiles', auth, studentController.connectCodingProfiles);
 
 module.exports = router;

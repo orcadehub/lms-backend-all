@@ -60,6 +60,14 @@ const studentSchema = new mongoose.Schema({
       rank: String,
       maxRating: { type: Number, default: 0 },
       lastSynced: Date
+    },
+    codechef: {
+      username: { type: String, unique: true, sparse: true },
+      connected: { type: Boolean, default: false },
+      rating: { type: Number, default: 0 },
+      globalRank: { type: Number, default: 0 },
+      stars: String,
+      lastSynced: Date
     }
   },
   tenant: {
@@ -101,7 +109,10 @@ const studentSchema = new mongoose.Schema({
   },
   lastActiveAt: {
     type: Date
-  }
+  },
+  loginHistory: [{
+    type: Date
+  }]
 }, {
   timestamps: true
 });

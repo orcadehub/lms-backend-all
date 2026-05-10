@@ -51,6 +51,21 @@ const authController = {
 
       const token = generateToken(user._id, user.role);
 
+      // Record activity if student
+      if (userModel === 'Student') {
+        user.lastActiveAt = new Date();
+        // Check if today's date already exists in history to avoid duplicates
+        const today = new Date().toISOString().split('T')[0];
+        const lastLogin = user.loginHistory.length > 0 
+          ? user.loginHistory[user.loginHistory.length - 1].toISOString().split('T')[0] 
+          : null;
+        
+        if (today !== lastLogin) {
+          user.loginHistory.push(new Date());
+        }
+        await user.save();
+      }
+
       res.json({
         message: 'Login successful',
         token,

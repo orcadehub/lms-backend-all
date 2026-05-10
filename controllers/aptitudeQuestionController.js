@@ -2,6 +2,19 @@ const AptitudeQuestion = require('../models/AptitudeQuestion');
 const XLSX = require('xlsx');
 
 const aptitudeQuestionController = {
+  // Get single question by ID
+  getQuestionById: async (req, res) => {
+    try {
+      const question = await AptitudeQuestion.findById(req.params.id);
+      if (!question) {
+        return res.status(404).json({ message: 'Question not found' });
+      }
+      res.json(question);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
   // Get all aptitude questions for the logged-in instructor
   getAllQuestions: async (req, res) => {
     try {
@@ -15,11 +28,43 @@ const aptitudeQuestionController = {
     }
   },
 
-  // Get all unique topics
+  // Get all unique topics with counts
   getAllTopics: async (req, res) => {
     try {
-      const topics = await AptitudeQuestion.distinct('topic');
-      res.json(topics);
+      const topicsWithCounts = await AptitudeQuestion.aggregate([
+        { $group: { _id: "$topic", count: { $sum: 1 } } },
+        { $project: { topic: "$_id", count: 1, _id: 0 } },
+        { $sort: { topic: 1 } }
+      ]);
+      res.json(topicsWithCounts);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Get questions by topic
+  getQuestionsByTopic: async (req, res) => {
+    try {
+      const { topic } = req.params;
+      const questions = await AptitudeQuestion.find({ topic }).sort({ createdAt: 1 });
+      res.json(questions);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Generate random test
+  generateTest: async (req, res) => {
+    try {
+      const { topics } = req.body; // Array of selected topics
+      const limit = 40;
+
+      const questions = await AptitudeQuestion.aggregate([
+        { $match: { topic: { $in: topics } } },
+        { $sample: { size: limit } }
+      ]);
+
+      res.json(questions);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }

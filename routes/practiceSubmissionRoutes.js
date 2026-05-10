@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const PracticeSubmission = require('../models/PracticeSubmission');
 const ProgrammingQuestion = require('../models/ProgrammingQuestion');
+const AssessmentQuestion = require('../models/AssessmentQuestion');
 const { auth } = require('../middleware/auth');
 
 // Submit practice solution

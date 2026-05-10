@@ -34,6 +34,7 @@ const aiMockRoutes = require('./routes/aiMockRoutes');
 const e2bRoutes = require('./routes/e2bRoutes');
 const genaiQuestionRoutes = require('./routes/genaiQuestionRoutes');
 const certificateRoutes = require('./routes/certificateRoutes');
+const partnerRoutes = require('./routes/partnerRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -58,6 +59,7 @@ const PORT = process.env.PORT || 4000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3001', 
   'https://orcode.in',
   'https://orcadehub.in',
@@ -65,6 +67,7 @@ const allowedOrigins = [
   'http://seedingminds.co.in',
   'https://backend.orcode.in',
   'https://instructor.orcode.in',
+  'https://partners.orcode.in',
   'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
 ];
 
@@ -146,6 +149,7 @@ app.use('/api/ai-mock', aiMockRoutes);
 app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/partners', partnerRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {

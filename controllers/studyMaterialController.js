@@ -4,7 +4,14 @@ const studyMaterialController = {
   getAllMaterials: async (req, res) => {
     try {
       const { tenantId } = req.query;
-      const materials = await StudyMaterial.find({ tenant: tenantId, isActive: true });
+      const materials = await StudyMaterial.find({ 
+        $or: [
+          { tenant: tenantId },
+          { tenant: { $exists: false } },
+          { tenant: null }
+        ],
+        isActive: true 
+      });
       res.json(materials);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });

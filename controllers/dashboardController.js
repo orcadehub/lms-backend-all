@@ -11,7 +11,7 @@ exports.getDashboardData = async (req, res) => {
     }
 
     // Get student data with coding profiles
-    const student = await Student.findOne({ email: email.toLowerCase() }).select('name email createdAt codingProfiles profile');
+    const student = await Student.findOne({ email: email.toLowerCase() }).select('name email createdAt codingProfiles profile loginHistory');
 
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
@@ -102,6 +102,17 @@ exports.getDashboardData = async (req, res) => {
 
     // Merge activity data
     const activityData = {};
+    
+    // Add login history to activity data
+    if (student.loginHistory) {
+      student.loginHistory.forEach(date => {
+        if (date >= sixMonthsAgo) {
+          const dateStr = date.toISOString().split('T')[0];
+          activityData[dateStr] = (activityData[dateStr] || 0) + 1;
+        }
+      });
+    }
+
     practiceActivity.forEach(a => {
       activityData[a._id] = (activityData[a._id] || 0) + a.count;
     });
