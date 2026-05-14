@@ -40,7 +40,7 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
         tenant: tenantId,
         isPublished: true,
         isActive: true
-      });
+      }).populate('enrollments.student', 'name email profilePic');
 
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
@@ -67,8 +67,10 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
       courseObj.isEnrolled = false;
     }
 
-    // Remove raw enrollments array from response
-    delete courseObj.enrollments;
+    // Only allow enrolled students or admins to see the full enrollment list
+    if (!courseObj.isEnrolled) {
+      delete courseObj.enrollments;
+    }
 
     res.json(courseObj);
   } catch (error) {
@@ -89,7 +91,7 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
     const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { courseId } = req.params;
-    const { batchName, agreedToTerms } = req.body;
+    const { batchName, agreedToTerms, surname, firstName, lastName, phoneNumber, collegeName, rollNumber } = req.body;
 
     if (!agreedToTerms) {
       return res.status(400).json({ message: 'You must agree to the Terms and Conditions' });
@@ -128,13 +130,20 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
       return res.status(400).json({ message: 'This batch is full. Please select another batch.' });
     }
 
-    // Add enrollment
+
+    // Add enrollment to course
     course.enrollments.push({
       student: studentId,
       batch: batchName,
       enrolledAt: new Date(),
       status: 'active',
-      agreedToTerms: true
+      agreedToTerms: true,
+      surname,
+      firstName,
+      lastName,
+      phoneNumber,
+      collegeName,
+      rollNumber
     });
 
     // Increment batch enrolled count
@@ -142,6 +151,17 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
     course.totalEnrollments = course.enrollments.length;
 
     await course.save();
+
+    // Update Student Profile
+    const Student = require('../models/Student');
+    await Student.findByIdAndUpdate(studentId, {
+      'profile.surname': surname,
+      'profile.firstName': firstName,
+      'profile.lastName': lastName,
+      'profile.phone': phoneNumber,
+      'profile.collegeName': collegeName,
+      'profile.rollNumber': rollNumber
+    });
 
     res.status(201).json({
       message: 'Successfully enrolled!',
@@ -187,6 +207,51 @@ router.get('/my-courses', validateApiKey, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error fetching enrolled courses:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update enrollment profile
+router.put('/courses/:courseId/enrollment', validateApiKey, async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ message: 'Login required' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
+    const { courseId } = req.params;
+    const { surname, firstName, lastName, phoneNumber, collegeName, rollNumber } = req.body;
+
+    const course = await Course.findOne({ courseId, tenant: req.tenantId });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    const enrollment = course.enrollments.find(e => e.student.toString() === studentId);
+    if (!enrollment) return res.status(404).json({ message: 'Enrollment not found' });
+
+    // Update Enrollment
+    enrollment.surname = surname;
+    enrollment.firstName = firstName;
+    enrollment.lastName = lastName;
+    enrollment.phoneNumber = phoneNumber;
+    enrollment.collegeName = collegeName;
+    enrollment.rollNumber = rollNumber;
+
+    await course.save();
+
+    // Update Student Profile
+    const Student = require('../models/Student');
+    await Student.findByIdAndUpdate(studentId, {
+      'profile.surname': surname,
+      'profile.firstName': firstName,
+      'profile.lastName': lastName,
+      'profile.phone': phoneNumber,
+      'profile.collegeName': collegeName,
+      'profile.rollNumber': rollNumber
+    });
+
+    res.json({ message: 'Profile updated successfully', enrollment });
+  } catch (error) {
+    console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -1,0 +1,22 @@
+set timeout 10
+spawn ssh -o StrictHostKeyChecking=no root@157.20.215.31 {
+    sudo tee /etc/nginx/sites-available/default <<NGINXEOF
+server {
+    listen 80;
+    server_name _;
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+NGINXEOF
+    sudo systemctl restart nginx
+    pm2 restart lms-api
+}
+expect -re ".*password: "
+send "PP@DTb@7z2#8by#7\r"
+expect eof

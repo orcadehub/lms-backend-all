@@ -29,7 +29,15 @@ const enrollmentSchema = new mongoose.Schema({
   progress: { type: Number, default: 0 },
   certificateRequested: { type: Boolean, default: false },
   certificatePaid: { type: Boolean, default: false },
-  agreedToTerms: { type: Boolean, default: true }
+  agreedToTerms: { type: Boolean, default: true },
+  
+  // New fields for detailed enrollment
+  surname: String,
+  firstName: String,
+  lastName: String,
+  phoneNumber: String,
+  collegeName: String,
+  rollNumber: String
 });
 
 const courseSchema = new mongoose.Schema({

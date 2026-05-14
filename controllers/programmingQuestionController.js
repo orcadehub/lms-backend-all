@@ -4,14 +4,8 @@ const programmingQuestionController = {
   // Get all topics with question counts
   getProgrammingTopics: async (req, res) => {
     try {
-      const topicOrder = [
-        'Inputs', 'Operators', 'Conditions', 'Nested Conditions', 'Loops', 
-        'While Loop', 'Nested Loops', 'Pattern Printing', 'Arrays', 'Strings', 
-        '2D Arrays', 'Functions', 'Class & Objects', 'Recursion', 'Hashing',
-        'Two Pointers', 'Sliding Window', 'Linked List', 'Stack', 'Queue', 
-        'Binary Search', 'Bit Manipulation', 'Tree', 'Graph', 'Backtracking',
-        'Dynamic Programming', 'Greedy'
-      ];
+      // Fetch topics from database, sorted by order
+      const topics = await require('../models/ProgrammingTopic').find({ isActive: true }).sort({ order: 1 });
       
       const questionCounts = await AssessmentQuestion.aggregate([
         { $match: { assessmentType: 'programming', isActive: true } },
@@ -23,9 +17,9 @@ const programmingQuestionController = {
         countsMap[item._id] = item.count;
       });
       
-      const allTopics = topicOrder.map(topicName => ({
-        topic: topicName,
-        count: countsMap[topicName] || 0
+      const allTopics = topics.map(t => ({
+        topic: t.name,
+        count: countsMap[t.name] || 0
       }));
       
       res.json(allTopics);

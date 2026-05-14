@@ -24,8 +24,13 @@ const studentSchema = new mongoose.Schema({
     default: 'student'
   },
   profile: {
-    dateOfBirth: Date,
+    surname: String,
+    firstName: String,
+    lastName: String,
     phone: String,
+    collegeName: String,
+    rollNumber: String,
+    dateOfBirth: Date,
     address: String,
     batch: [String],
     profilePic: String
