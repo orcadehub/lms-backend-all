@@ -56,7 +56,7 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
         const studentId = decoded.studentId || decoded.userId || decoded.id;
         const enrollment = course.enrollments?.find(
-          e => e.student.toString() === studentId
+          e => (e.student?._id || e.student).toString() === studentId
         );
         courseObj.isEnrolled = !!enrollment;
         courseObj.enrollmentData = enrollment || null;
