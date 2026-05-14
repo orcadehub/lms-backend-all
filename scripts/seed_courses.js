@@ -5,108 +5,108 @@ const Course = require('../models/Course');
 const MERN_ROADMAP = [
   {
     week: 1,
-    title: 'Web Fundamentals & HTML5',
+    title: 'Web Fundamentals & Version Control',
     topics: [
-      'How the Internet works — HTTP, DNS, Browsers',
-      'HTML5 Semantic Elements & Structure',
-      'Forms, Tables, Media Embeds',
-      'Accessibility & SEO Basics',
-      'Developer Tools & VS Code Setup'
+      'How the Internet works — HTTP/HTTPS, DNS',
+      'HTML5 Semantic Elements & SEO Structure',
+      'Git Fundamentals — Config, Init, Add, Commit',
+      'GitHub — Repositories, Pushing Code, Pull Requests',
+      'Developer Tools & VS Code Extensions'
     ],
-    project: 'Build a Personal Portfolio Page (HTML only)',
+    project: 'Personal Portfolio hosted on GitHub Pages',
     assignment: 'Week 1 Quiz & Portfolio basic structure'
   },
   {
     week: 2,
-    title: 'CSS3 & Responsive Design',
+    title: 'CSS3 & Responsive UI with Bootstrap',
     topics: [
-      'CSS Selectors, Box Model, Specificity',
-      'Flexbox & CSS Grid Layouts',
+      'Advanced CSS3 — Flexbox, Grid, Animations',
       'Media Queries & Mobile-First Design',
-      'CSS Animations & Transitions',
-      'CSS Variables & Modern Techniques'
+      'Bootstrap 5 — Grid System, Components, Utilities',
+      'Customizing Bootstrap with CSS Overrides',
+      'Modern UI/UX Principles for Web'
     ],
-    project: 'Responsive Landing Page with Animations',
-    assignment: 'Replicate a Landing Page layout exactly'
+    project: 'Multi-section Responsive Landing Page',
+    assignment: 'Replicate a complex UI using Bootstrap'
   },
   {
     week: 3,
-    title: 'JavaScript Essentials',
+    title: 'JavaScript Essentials (Logic Building)',
     topics: [
-      'Variables, Data Types, Operators',
-      'Functions, Scope, Closures',
-      'Arrays, Objects, Destructuring',
-      'DOM Manipulation & Events',
-      'ES6+ Features — Arrow Functions, Spread, Template Literals'
+      'ES6+ Features — Destructuring, Spread, Modules',
+      'Higher-Order Functions — map, filter, reduce',
+      'DOM Manipulation & Event Listeners',
+      'Logical Operators & Conditional Statements',
+      'Logic Building with 50+ Coding Patterns'
     ],
-    project: 'Interactive To-Do App with Local Storage',
-    assignment: 'Array Methods & DOM Exercise'
+    project: 'Interactive Finance Tracker App',
+    assignment: 'Solve 20+ JavaScript Algorithm Challenges'
   },
   {
     week: 4,
-    title: 'Advanced JavaScript & Async',
+    title: 'Async JS & REST API Consumption',
     topics: [
-      'Promises, Async/Await',
-      'Fetch API & REST API Consumption',
-      'Error Handling & Debugging',
-      'Modules (import/export)',
-      'JSON, LocalStorage, SessionStorage'
+      'Promises, Async/Await & Error Handling',
+      'Fetch API & Consuming External REST APIs',
+      'JSON Data Parsing & Local Storage',
+      'HTTP Methods — GET, POST, PUT, DELETE',
+      'Postman for API Testing & Documentation'
     ],
-    project: 'Weather Dashboard using Public API',
-    assignment: 'Fetch Data from Movie API',
+    project: 'Real-time Weather Dashboard using OpenWeather API',
+    assignment: 'Build a Movie Search Engine using OMDB API',
     isAssessmentWeek: true
   },
   {
     week: 5,
-    title: 'React.js Fundamentals',
+    title: 'React.js Mastery (Frontend Framework)',
     topics: [
-      'React Setup — Create React App / Vite',
-      'JSX, Components, Props',
-      'useState, useEffect Hooks',
-      'Conditional Rendering & Lists',
-      'Event Handling & Forms in React'
+      'React Architecture — Components, Props, JSX',
+      'State Management with useState & useEffect',
+      'Handling Forms & Input Validations',
+      'Conditional Rendering & Dynamic Lists',
+      'Thinking in React — Component Composition'
     ],
-    project: 'React Blog with Dynamic Content',
-    assignment: 'State Management Exercise'
+    project: 'Modern Task Management Dashboard',
+    assignment: 'Build a Product Catalog with Filters'
   },
   {
     week: 6,
-    title: 'Advanced React & Routing',
+    title: 'Advanced React & Global State',
     topics: [
-      'React Router DOM — Navigation & Params',
-      'useContext, useReducer for State Management',
-      'Custom Hooks',
-      'React Toastify & UI Libraries (MUI basics)',
-      'Deployment on Netlify / Vercel'
+      'React Router — Navigation, Nested Routes, Params',
+      'Context API for Global State Management',
+      'Custom Hooks & useReducer Optimization',
+      'Frontend Deployment — Vercel and Render',
+      'React Toastify & Framer Motion Animations'
     ],
-    project: 'Multi-page E-Commerce Frontend',
-    assignment: 'Routing & Context API Task'
+    project: 'E-Commerce Storefront with Shopping Cart',
+    assignment: 'Implement Auth-Protected Routes in React'
   },
   {
     week: 7,
-    title: 'Backend with Node.js & Express',
+    title: 'Backend with Node.js, Express & DB',
     topics: [
-      'Node.js Runtime & NPM',
-      'Express.js — Routes, Middleware',
-      'REST API Design & HTTP Methods',
-      'MongoDB & Mongoose — Schema, Models, CRUD',
-      'Environment Variables (.env), Nodemon'
+      'Node.js Runtime & Express.js Framework',
+      'Building RESTful APIs from Scratch',
+      'MongoDB Atlas & Mongoose Modeling',
+      'Middleware — Auth, Logger, Error Handlers',
+      'Database Relationships — One-to-Many, Reference'
     ],
-    project: 'Full REST API for a Blog Platform',
-    assignment: 'Build a secure Login API'
+    project: 'Full-featured Backend for a Social Media App',
+    assignment: 'Create a secure CRUD API with Mongoose'
   },
   {
     week: 8,
-    title: 'Full Stack Integration & Deployment',
+    title: 'Security, CI/CD & Cloud Deployment',
     topics: [
-      'Connecting React Frontend to Express Backend',
-      'Authentication — JWT, bcrypt, Protected Routes',
-      'File Uploads & Image Handling',
-      'Error Handling & Validation',
-      'Deployment — Frontend + Backend on Cloud'
+      'JWT Authentication & Bcrypt Password Hashing',
+      'CI/CD Pipelines using GitHub Actions',
+      'Cloudflare — DNS Management & Security',
+      'Cloud Deployment — Deploying Full Stack to Production',
+      'Final Project Architecture & Code Review'
     ],
-    project: 'Full Stack MERN Project — Task Management App',
-    assignment: 'Final Project Submission & Review',
+    project: 'Final Full Stack MERN Application (LMS or CRM)',
+    assignment: 'Final Capstone Project Submission',
     isAssessmentWeek: true
   }
 ];
@@ -142,14 +142,14 @@ const courses = [
       }
     ],
     learningOutcomes: [
-      'Build responsive websites with HTML5 & CSS3',
-      'Write modern JavaScript (ES6+) with confidence',
-      'Create dynamic single-page apps with React.js',
-      'Design and build REST APIs with Express.js',
-      'Work with MongoDB & Mongoose for data persistence',
-      'Implement JWT Authentication & Authorization',
-      'Deploy full-stack apps to the cloud',
-      'Build a professional portfolio with 8+ projects'
+      'Build responsive websites with HTML5, CSS3 & Bootstrap 5',
+      'Master Git & GitHub for professional version control',
+      'Write modern JavaScript (ES6+) and logic patterns',
+      'Create dynamic apps with React.js & Context API',
+      'Design robust REST APIs with Node.js & Express.js',
+      'Master MongoDB & Mongoose for cloud data persistence',
+      'Implement JWT Security & CI/CD Pipelines',
+      'Deploy full-stack apps to the cloud with Cloudflare security'
     ],
     prerequisites: [
       'Basic computer literacy',
@@ -157,7 +157,7 @@ const courses = [
       'No prior programming experience required',
       'Willingness to practice daily'
     ],
-    technologies: ['HTML5', 'CSS3', 'JavaScript', 'React.js', 'Node.js', 'Express.js', 'MongoDB', 'Git', 'VS Code'],
+    technologies: ['HTML5', 'CSS3', 'Bootstrap 5', 'JavaScript', 'React.js', 'Context API', 'Node.js', 'Express.js', 'MongoDB', 'Git', 'GitHub', 'CI/CD', 'Cloudflare', 'Vercel'],
     isPublished: true,
     isActive: true
   },
