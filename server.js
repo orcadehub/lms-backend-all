@@ -35,6 +35,7 @@ const e2bRoutes = require('./routes/e2bRoutes');
 const genaiQuestionRoutes = require('./routes/genaiQuestionRoutes');
 const certificateRoutes = require('./routes/certificateRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
+const studentCourseRoutes = require('./routes/studentCourseRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -122,6 +123,7 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', studentAuthRoutes);
+app.use('/api/student', studentCourseRoutes);
 app.use('/api/practice-submissions', practiceSubmissionRoutes);
 app.use('/api/piston', pistonRoutes);
 app.use('/api/users', userRoutes);

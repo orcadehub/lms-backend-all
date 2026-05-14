@@ -86,6 +86,70 @@ router.post('/student/login', validateApiKey, async (req, res) => {
   }
 });
 
+// Student registration
+router.post('/student/register', validateApiKey, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    // Check if student already exists in this tenant
+    const existingStudent = await Student.findOne({ 
+      email: email.toLowerCase(),
+      tenant: tenantId 
+    });
+
+    if (existingStudent) {
+      return res.status(400).json({ message: 'Email already registered in this tenant' });
+    }
+
+    // Create new student
+    const student = new Student({
+      name,
+      email: email.toLowerCase(),
+      password, // Will be hashed by pre-save hook
+      tenant: tenantId,
+      isActive: true
+    });
+
+    await student.save();
+
+    // Generate JWT token for immediate login
+    const token = jwt.sign(
+      { 
+        studentId: student._id,
+        tenantId: tenantId,
+        email: student.email,
+        role: 'student'
+      },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      message: 'Registration successful',
+      token,
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        batch: [],
+        tenant: req.tenant.name
+      }
+    });
+  } catch (error) {
+    console.error('Student registration error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get student profile by token
 router.get('/student/profile', validateApiKey, async (req, res) => {
   try {
