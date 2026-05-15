@@ -125,10 +125,10 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
       return res.status(400).json({ message: 'Selected batch not found or inactive' });
     }
 
-    // Check batch capacity
-    if (batch.enrolledCount >= batch.maxSeats) {
-      return res.status(400).json({ message: 'This batch is full. Please select another batch.' });
-    }
+    // Check batch capacity - DISABLED for Anniversary/Large capacity courses
+    // if (batch.enrolledCount >= (batch.maxSeats || 2000)) {
+    //   return res.status(400).json({ message: 'This batch is full. Please select another batch.' });
+    // }
 
 
     // Add enrollment to course
