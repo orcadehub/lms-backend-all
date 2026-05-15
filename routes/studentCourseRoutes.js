@@ -54,12 +54,18 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-        const studentId = decoded.studentId || decoded.userId || decoded.id;
-        const enrollment = course.enrollments?.find(
-          e => (e.student?._id || e.student).toString() === studentId
-        );
-        courseObj.isEnrolled = !!enrollment;
-        courseObj.enrollmentData = enrollment || null;
+        const studentId = (decoded.studentId || decoded.userId || decoded.id || decoded._id)?.toString();
+        
+        if (studentId && course.enrollments) {
+          const enrollment = course.enrollments.find(e => {
+            const enrolledId = (e.student?._id || e.student)?.toString();
+            return enrolledId === studentId;
+          });
+          courseObj.isEnrolled = !!enrollment;
+          courseObj.enrollmentData = enrollment || null;
+        } else {
+          courseObj.isEnrolled = false;
+        }
       } catch {
         courseObj.isEnrolled = false;
       }
