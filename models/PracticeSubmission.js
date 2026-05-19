@@ -4,7 +4,7 @@ const codeHistorySchema = new mongoose.Schema({
   language: {
     type: String,
     required: true,
-    enum: ['python', 'cpp', 'java', 'c', 'javascript']
+    enum: ['python', 'cpp', 'java', 'c', 'javascript', 'typescript', 'go', 'rust', 'kotlin', 'ruby', 'php', 'bash']
   },
   code: {
     type: String,
@@ -24,7 +24,7 @@ const submissionSchema = new mongoose.Schema({
   language: {
     type: String,
     required: true,
-    enum: ['python', 'cpp', 'java', 'c', 'javascript']
+    enum: ['python', 'cpp', 'java', 'c', 'javascript', 'typescript', 'go', 'rust', 'kotlin', 'ruby', 'php', 'bash']
   },
   status: {
     type: String,
@@ -66,13 +66,14 @@ const practiceSubmissionSchema = new mongoose.Schema({
   },
   subTopicId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'SubTopic',
-    required: true
+    ref: 'SubTopic'
   },
   topicId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Topic',
-    required: true
+    ref: 'Topic'
+  },
+  topic: {
+    type: String
   },
   
   // Completion status
@@ -113,7 +114,7 @@ const practiceSubmissionSchema = new mongoose.Schema({
   // Current active language
   currentLanguage: {
     type: String,
-    enum: ['python', 'cpp', 'java', 'c', 'javascript'],
+    enum: ['python', 'cpp', 'java', 'c', 'javascript', 'typescript', 'go', 'rust', 'kotlin', 'ruby', 'php', 'bash'],
     default: 'python'
   },
   
@@ -180,7 +181,7 @@ const practiceSubmissionSchema = new mongoose.Schema({
   // Language preferences
   languagesUsed: [{
     type: String,
-    enum: ['python', 'cpp', 'java', 'c', 'javascript']
+    enum: ['python', 'cpp', 'java', 'c', 'javascript', 'typescript', 'go', 'rust', 'kotlin', 'ruby', 'php', 'bash']
   }],
   
   // Hints and help

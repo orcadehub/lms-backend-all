@@ -14,12 +14,13 @@ router.post('/submit', auth, async (req, res) => {
     
     let practiceSubmission = await PracticeSubmission.findOne({ userId, questionId });
     if (!practiceSubmission) {
-      const question = await ProgrammingQuestion.findById(questionId);
+      let question = await ProgrammingQuestion.findById(questionId);
+      if (!question) question = await AssessmentQuestion.findById(questionId);
       practiceSubmission = new PracticeSubmission({
         userId, questionId, subTopicId, topicId,
         maxCoinsAvailable: question?.points || 10,
         difficulty: question?.difficulty,
-        topic: question?.topic // Store topic name for statistics
+        topic: question?.topic || req.body.topic
       });
     }
     
@@ -45,7 +46,8 @@ router.post('/submit', auth, async (req, res) => {
     if (isNewCompletion) {
       const io = req.app.get('io');
       if (io) {
-        const question = await ProgrammingQuestion.findById(questionId);
+        let question = await ProgrammingQuestion.findById(questionId);
+        if (!question) question = await AssessmentQuestion.findById(questionId);
         io.emit('practice_completion', {
           username: req.user.name,
           problemTitle: question?.title || 'Unknown Problem',
@@ -66,7 +68,8 @@ router.post('/save-code', auth, async (req, res) => {
     const { questionId, subTopicId, topicId, code, language } = req.body;
     let practiceSubmission = await PracticeSubmission.findOne({ userId: req.user.id, questionId });
     if (!practiceSubmission) {
-      const question = await ProgrammingQuestion.findById(questionId);
+      let question = await ProgrammingQuestion.findById(questionId);
+      if (!question) question = await AssessmentQuestion.findById(questionId);
       practiceSubmission = new PracticeSubmission({ userId: req.user.id, questionId, subTopicId, topicId, difficulty: question?.difficulty, topic: question?.topic });
     }
     practiceSubmission.codeHistory.set(language, { code, lastUpdated: new Date() });

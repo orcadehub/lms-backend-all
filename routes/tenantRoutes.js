@@ -14,6 +14,7 @@ const upload = multer({
 
 // Public endpoint - Get tenant config by domain (no auth required)
 router.get('/config', tenantController.getTenantConfig);
+router.get('/public-list', tenantController.getAllTenants);
 
 // Admin endpoints
 router.get('/', auth, authorize('admin'), tenantController.getAllTenants);
