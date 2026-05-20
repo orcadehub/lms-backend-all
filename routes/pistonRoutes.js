@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const { auth } = require('../middleware/auth');
 
 // Piston API configuration - Array of fallback servers
 const PISTON_SERVERS = (process.env.PISTON_URLS || 'http://150.241.244.176:2000,http://65.0.185.100:2000,http://52.66.57.225:2000').split(',');
@@ -12,7 +13,7 @@ const AWS_SERVERS = PISTON_SERVERS.filter(url => !url.includes('150.241.244.176'
 
 let currentAwsIndex = 0;
 
-router.post('/execute', async (req, res) => {
+router.post('/execute', auth, async (req, res) => {
   const lang = (req.body.language || '').toLowerCase();
   console.log(`[Piston] Request received for language: ${lang}`);
 
