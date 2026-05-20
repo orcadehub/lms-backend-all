@@ -38,5 +38,21 @@ const sendOTPEmail = async (email, otp, name) => {
     throw error;
   }
 };
+const sendCustomEmail = async (to, subject, html) => {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'orcadehub.llp@gmail.com',
+      to,
+      subject,
+      html
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Custom email sent successfully:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Custom email service error:', error);
+    throw error;
+  }
+};
 
-module.exports = { sendOTPEmail };
+module.exports = { sendOTPEmail, sendCustomEmail };

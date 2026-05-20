@@ -33,4 +33,11 @@ batchSchema.index({ students: 1 }); // Find batches for specific student
 batchSchema.index({ tenant: 1, students: 1 }); // Student batch lookup optimization
 batchSchema.index({ name: 1, tenant: 1 }); // Find batch by name within tenant
 
+batchSchema.virtual('enrolledCount').get(function() {
+  return this.students ? this.students.length : 0;
+});
+
+batchSchema.set('toJSON', { virtuals: true });
+batchSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('Batch', batchSchema);

@@ -9,18 +9,6 @@ const weekSchema = new mongoose.Schema({
   isAssessmentWeek: { type: Boolean, default: false }
 }, { _id: false });
 
-const batchSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  startDate: { type: Date, required: true },
-  endDate: Date,
-  maxSeats: { type: Number, default: 50 },
-  enrolledCount: { type: Number, default: 0 },
-  timing: { type: String, default: '6 PM - 9 PM IST' },
-  classDays: { type: String, default: 'Mon - Fri' },
-  status: { type: String, enum: ['upcoming', 'ongoing', 'completed'], default: 'upcoming' },
-  isActive: { type: Boolean, default: true }
-});
-
 const enrollmentSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   batch: { type: String, required: true },
@@ -92,15 +80,12 @@ const courseSchema = new mongoose.Schema({
   color: { type: String, default: '#6366f1' },
   bgColor: { type: String, default: '#eef2ff' },
   tags: [String],
+batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], // References Batch documents
 
   // Roadmap: 8 weeks structure
   roadmap: [weekSchema],
 
-  // Batches
-  batches: [batchSchema],
 
-  // Enrollments
-  enrollments: [enrollmentSchema],
 
   // What students will learn
   learningOutcomes: [String],
@@ -189,13 +174,13 @@ By enrolling in this course, you acknowledge that you have read, understood, and
 // Indexes
 courseSchema.index({ courseId: 1 }, { unique: true });
 courseSchema.index({ tenant: 1, isPublished: 1, isActive: 1 });
-courseSchema.index({ 'enrollments.student': 1 });
+
 courseSchema.index({ category: 1, level: 1 });
 courseSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
-// Virtual for active batch count
+// Virtual for active batch count – placeholder (computed elsewhere)
 courseSchema.virtual('activeBatchCount').get(function() {
-  return this.batches ? this.batches.filter(b => b.isActive).length : 0;
+  return null; // Populate via aggregation on Batch collection if needed
 });
 
 courseSchema.set('toJSON', { virtuals: true });

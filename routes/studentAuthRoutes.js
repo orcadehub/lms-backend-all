@@ -203,11 +203,16 @@ router.get('/student/active-count', validateApiKey, async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const activeCount = await Student.countDocuments({
+    
+    const activeStudents = await Student.find({
       tenant: tenantId,
       lastActiveAt: { $gte: fiveMinutesAgo }
+    }).select('name profile.avatar profile.firstName profile.lastName');
+
+    res.json({ 
+      activeCount: activeStudents.length,
+      activeStudents 
     });
-    res.json({ activeCount });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

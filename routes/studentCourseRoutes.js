@@ -13,12 +13,12 @@ router.get('/courses', validateApiKey, async (req, res) => {
       tenant: tenantId,
       isPublished: true,
       isActive: true
-    }).select('-enrollments -termsAndConditions -roadmap');
+    }).select('-termsAndConditions -roadmap');
 
     // Add enrollment count
     const coursesWithCounts = courses.map(c => {
       const obj = c.toObject();
-      obj.totalEnrollments = c.enrollments ? c.enrollments.length : c.totalEnrollments || 0;
+      obj.totalEnrollments = c.totalEnrollments || 0;
       return obj;
     });
 
@@ -35,19 +35,22 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
     const tenantId = req.tenantId;
     const { courseId } = req.params;
 
-      const course = await Course.findOne({
-        courseId,
-        tenant: tenantId,
-        isPublished: true,
-        isActive: true
-      }).populate('enrollments.student', 'name email profilePic');
+    const course = await Course.findOne({
+      courseId,
+      tenant: tenantId,
+      isPublished: true,
+      isActive: true
+    }).populate('batches');
 
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
     const courseObj = course.toObject();
-    courseObj.totalEnrollments = course.enrollments ? course.enrollments.length : course.totalEnrollments || 0;
+    courseObj.totalEnrollments = course.totalEnrollments || 0;
+    
+    // Make sure we have Enrollment model required
+    const Enrollment = require('../models/Enrollment');
 
     // Check if student is enrolled (if token provided)
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -56,17 +59,23 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
         const studentId = (decoded.studentId || decoded.userId || decoded.id || decoded._id)?.toString();
         
-        if (studentId && course.enrollments) {
-          const enrollment = course.enrollments.find(e => {
-            const enrolledId = (e.student?._id || e.student)?.toString();
-            return enrolledId === studentId;
-          });
-          courseObj.isEnrolled = !!enrollment;
-          courseObj.enrollmentData = enrollment || null;
+        if (studentId && course.batches && course.batches.length > 0) {
+          const batchIds = course.batches.map(b => b._id);
+          const enrollment = await Enrollment.findOne({
+            student: studentId,
+            batch: { $in: batchIds }
+          }).populate('student', 'name email profilePic');
+          
+          if (enrollment) {
+            courseObj.isEnrolled = true;
+            courseObj.enrollmentData = enrollment;
+          } else {
+            courseObj.isEnrolled = false;
+          }
         } else {
           courseObj.isEnrolled = false;
         }
-      } catch {
+      } catch (e) {
         courseObj.isEnrolled = false;
       }
     } else {
@@ -74,8 +83,12 @@ router.get('/courses/:courseId', validateApiKey, async (req, res) => {
     }
 
     // Only allow enrolled students or admins to see the full enrollment list
-    if (!courseObj.isEnrolled) {
-      delete courseObj.enrollments;
+    if (courseObj.isEnrolled && course.batches && course.batches.length > 0) {
+      const batchIds = course.batches.map(b => b._id);
+      const enrollments = await Enrollment.find({
+        batch: { $in: batchIds }
+      }).populate('student', 'name email profilePic').lean();
+      courseObj.enrollments = enrollments;
     }
 
     res.json(courseObj);
@@ -108,16 +121,26 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
       tenant: tenantId,
       isPublished: true,
       isActive: true
-    });
+    }).populate('batches');
 
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
 
+    const Enrollment = require('../models/Enrollment');
+    const Batch = require('../models/Batch');
+
     // Check if already enrolled
-    const existing = course.enrollments?.find(
-      e => e.student.toString() === studentId
-    );
+    let batchIds = [];
+    if (course.batches && course.batches.length > 0) {
+      batchIds = course.batches.map(b => b._id);
+    }
+    const existing = await Enrollment.findOne({
+      student: studentId,
+      batch: { $in: batchIds },
+      tenant: tenantId
+    });
+
     if (existing) {
       return res.status(200).json({ 
         message: 'You are already enrolled in this course',
@@ -131,16 +154,11 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
       return res.status(400).json({ message: 'Selected batch not found or inactive' });
     }
 
-    // Check batch capacity - DISABLED for Anniversary/Large capacity courses
-    // if (batch.enrolledCount >= (batch.maxSeats || 2000)) {
-    //   return res.status(400).json({ message: 'This batch is full. Please select another batch.' });
-    // }
-
-
-    // Add enrollment to course
-    course.enrollments.push({
+    // Create Enrollment document
+    const newEnrollment = new Enrollment({
       student: studentId,
-      batch: batchName,
+      batch: batch._id,
+      tenant: tenantId,
       enrolledAt: new Date(),
       status: 'active',
       agreedToTerms: true,
@@ -151,11 +169,15 @@ router.post('/courses/:courseId/enroll', validateApiKey, async (req, res) => {
       collegeName,
       rollNumber
     });
+    await newEnrollment.save();
 
-    // Increment batch enrolled count
-    batch.enrolledCount += 1;
-    course.totalEnrollments = course.enrollments.length;
+    // Add student to Batch
+    await Batch.findByIdAndUpdate(batch._id, {
+      $addToSet: { students: studentId }
+    });
 
+    // Increment course totalEnrollments
+    course.totalEnrollments = (course.totalEnrollments || 0) + 1;
     await course.save();
 
     // Update Student Profile
@@ -196,17 +218,24 @@ router.get('/my-courses', validateApiKey, async (req, res) => {
     const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
 
+    const Enrollment = require('../models/Enrollment');
+    const enrollments = await Enrollment.find({ student: studentId, tenant: tenantId }).populate('batch');
+    const batchIds = enrollments.map(e => e.batch?._id || e.batch);
+
     const courses = await Course.find({
       tenant: tenantId,
-      'enrollments.student': studentId
+      batches: { $in: batchIds }
     }).select('-termsAndConditions');
 
     const result = courses.map(c => {
       const obj = c.toObject();
-      const enrollment = c.enrollments.find(e => e.student.toString() === studentId);
-      obj.myEnrollment = enrollment;
-      obj.totalEnrollments = c.enrollments.length;
-      delete obj.enrollments;
+      const courseBatchIds = (c.batches || []).map(b => b.toString());
+      const myEnrollment = enrollments.find(e => {
+        const eBatchId = e.batch?._id ? e.batch._id.toString() : e.batch.toString();
+        return courseBatchIds.includes(eBatchId);
+      });
+      obj.myEnrollment = myEnrollment;
+      obj.totalEnrollments = c.totalEnrollments || 0;
       return obj;
     });
 
@@ -228,10 +257,14 @@ router.put('/courses/:courseId/enrollment', validateApiKey, async (req, res) => 
     const { courseId } = req.params;
     const { surname, firstName, lastName, phoneNumber, collegeName, rollNumber } = req.body;
 
-    const course = await Course.findOne({ courseId, tenant: req.tenantId });
+    const course = await Course.findOne({ courseId, tenant: req.tenantId }).populate('batches');
     if (!course) return res.status(404).json({ message: 'Course not found' });
 
-    const enrollment = course.enrollments.find(e => e.student.toString() === studentId);
+    const batchIds = course.batches ? course.batches.map(b => b._id) : [];
+
+    const Enrollment = require('../models/Enrollment');
+    const enrollment = await Enrollment.findOne({ student: studentId, batch: { $in: batchIds } });
+
     if (!enrollment) return res.status(404).json({ message: 'Enrollment not found' });
 
     // Update Enrollment
@@ -242,7 +275,7 @@ router.put('/courses/:courseId/enrollment', validateApiKey, async (req, res) => 
     enrollment.collegeName = collegeName;
     enrollment.rollNumber = rollNumber;
 
-    await course.save();
+    await enrollment.save();
 
     // Update Student Profile
     const Student = require('../models/Student');

@@ -36,6 +36,7 @@ const genaiQuestionRoutes = require('./routes/genaiQuestionRoutes');
 const certificateRoutes = require('./routes/certificateRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const studentCourseRoutes = require('./routes/studentCourseRoutes');
+const messageRoutes = require('./routes/messageRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -152,6 +153,7 @@ app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {
