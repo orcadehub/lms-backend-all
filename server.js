@@ -69,7 +69,7 @@ const allowedOrigins = [
   'https://orcadehub.in',
   'https://seedingminds.co.in',
   'http://seedingminds.co.in',
-  'https://backend.orcode.in',
+  'https://backend.orcadehub.com',
   'https://instructor.orcode.in',
   'https://partners.orcode.in',
   'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
