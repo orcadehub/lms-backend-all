@@ -64,6 +64,8 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:3001', 
   'https://orcode.in',
+  'https://orcadehub.com',
+  'https://instructor.orcadehub.com',
   'https://orcadehub.in',
   'https://seedingminds.co.in',
   'http://seedingminds.co.in',
@@ -78,7 +80,7 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.orcode.in') || origin.endsWith('.seedingminds.co.in')) {
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.orcode.in') || origin.endsWith('.seedingminds.co.in') || origin.endsWith('.orcadehub.com')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
