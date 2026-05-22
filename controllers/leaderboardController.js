@@ -15,12 +15,15 @@ const leaderboardController = {
         return res.status(400).json({ message: 'Email is required' });
       }
       
+      const isGlobal = req.query.global === 'true';
       const emailDomain = userEmail.split('@')[1];
-      const query = { isActive: true, email: { $regex: `@${emailDomain}$`, $options: 'i' } };
+      const query = { isActive: true };
+      if (!isGlobal) {
+        query.email = { $regex: `@${emailDomain}$`, $options: 'i' };
+      }
       
       const students = await Student.find(query)
         .select('name email codingProfiles')
-        .limit(limit)
         .lean();
 
       // Get practice solved counts for all students in this domain
@@ -61,15 +64,21 @@ const leaderboardController = {
       // Sort by total solved
       leaderboardData.sort((a, b) => b.totalSolved - a.totalSolved);
       
+      const currentUserIndex = leaderboardData.findIndex(s => s.email.toLowerCase() === userEmail.toLowerCase());
+      const currentUserRank = currentUserIndex !== -1 ? currentUserIndex + 1 : 0;
+      
+      const topData = leaderboardData.slice(0, Math.min(limit, 250));
+
       // Add rank
-      const rankedData = leaderboardData.map((student, index) => ({
+      const rankedData = topData.map((student, index) => ({
         ...student,
         rank: index + 1
       }));
       
       res.json({
         data: rankedData,
-        total: rankedData.length
+        total: leaderboardData.length,
+        currentUserRank
       });
     } catch (error) {
       console.error('Error fetching leaderboard:', error);

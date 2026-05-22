@@ -120,12 +120,12 @@ exports.getDashboardData = async (req, res) => {
       activityData[a._id] = (activityData[a._id] || 0) + a.count;
     });
 
-    // Calculate rank based on total problems solved
-    let rank = 0;
+    let localRank = 0;
+    let globalRank = 0;
     try {
       const emailDomain = email.split('@')[1];
-      const students = await Student.find({ isActive: true, email: { $regex: `@${emailDomain}$`, $options: 'i' } })
-        .select('_id codingProfiles')
+      const students = await Student.find({ isActive: true })
+        .select('_id email codingProfiles')
         .lean();
 
       const practiceStats = await PracticeSubmission.aggregate([
@@ -137,21 +137,33 @@ exports.getDashboardData = async (req, res) => {
         practiceMap[stat._id.toString()] = stat.solvedCount;
       });
 
-      const leaderboardData = students.map(s => {
+      let localLeaderboard = [];
+      let globalLeaderboard = [];
+
+      students.forEach(s => {
         const profiles = s.codingProfiles || {};
         const appS = practiceMap[s._id.toString()] || 0;
-        return {
-          id: s._id.toString(),
-          totalSolved: (profiles.leetcode?.totalSolved || 0) + 
-                       (profiles.hackerrank?.totalSolved || 0) + 
-                       (profiles.codeforces?.totalSolved || 0) + 
-                       appS
-        };
+        const totalSolved = (profiles.leetcode?.totalSolved || 0) + 
+                            (profiles.hackerrank?.totalSolved || 0) + 
+                            (profiles.codeforces?.totalSolved || 0) + 
+                            appS;
+        
+        const entry = { id: s._id.toString(), totalSolved };
+        globalLeaderboard.push(entry);
+        
+        if (s.email && s.email.toLowerCase().endsWith(`@${emailDomain}`)) {
+          localLeaderboard.push(entry);
+        }
       });
 
-      leaderboardData.sort((a, b) => b.totalSolved - a.totalSolved);
-      const userIndex = leaderboardData.findIndex(s => s.id === studentId.toString());
-      rank = userIndex !== -1 ? userIndex + 1 : 0;
+      globalLeaderboard.sort((a, b) => b.totalSolved - a.totalSolved);
+      localLeaderboard.sort((a, b) => b.totalSolved - a.totalSolved);
+
+      const globalUserIndex = globalLeaderboard.findIndex(s => s.id === studentId.toString());
+      const localUserIndex = localLeaderboard.findIndex(s => s.id === studentId.toString());
+
+      globalRank = globalUserIndex !== -1 ? globalUserIndex + 1 : 0;
+      localRank = localUserIndex !== -1 ? localUserIndex + 1 : 0;
     } catch(err) {
       console.error('Rank calculation error:', err);
     }
@@ -167,7 +179,8 @@ exports.getDashboardData = async (req, res) => {
         accuracy: Math.round(accuracy * 10) / 10,
         overall: Math.round(overall * 10) / 10,
         appSolved,
-        rank,
+        rank: localRank,
+        globalRank,
         streak: student?.streak || 0,
         maxStreak: student?.maxStreak || 0
       },
