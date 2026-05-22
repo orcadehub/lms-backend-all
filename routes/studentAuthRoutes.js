@@ -1088,7 +1088,11 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     const Assessment = require('../models/Assessment');
     const assessment = await Assessment.findOne({
       _id: assessmentId,
-      tenantId: tenantId
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } },
+        { tenantId: null }
+      ]
     })
     .populate('questions')
     .populate('frontendQuestions')
@@ -1137,7 +1141,11 @@ router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req,
     const Assessment = require('../models/Assessment');
     const assessment = await Assessment.findOne({
       _id: assessmentId,
-      tenantId: tenantId
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } },
+        { tenantId: null }
+      ]
     }).select('-questions -frontendQuestions -quizQuestions -mongodbPlaygroundQuestions -sqlPlaygroundQuestions');
 
     if (!assessment) {
@@ -1177,7 +1185,11 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
     const Assessment = require('../models/Assessment');
     const assessment = await Assessment.findOne({
       _id: assessmentId,
-      tenantId: tenantId
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } },
+        { tenantId: null }
+      ]
     })
     .populate({
       path: 'questions',
