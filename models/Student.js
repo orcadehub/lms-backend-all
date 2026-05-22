@@ -115,6 +115,17 @@ const studentSchema = new mongoose.Schema({
   lastActiveAt: {
     type: Date
   },
+  streak: {
+    type: Number,
+    default: 0
+  },
+  maxStreak: {
+    type: Number,
+    default: 0
+  },
+  lastStreakUpdate: {
+    type: Date
+  },
   loginHistory: [{
     type: Date
   }]

@@ -120,8 +120,11 @@ const connectDB = async () => {
   }
 };
 
-// Connect to database
-connectDB();
+// Connect to database and start cron jobs
+connectDB().then(() => {
+  const cronJobs = require('./services/cronJobs');
+  cronJobs.startCronJobs();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -14,12 +14,14 @@ const createAssessment = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, type, duration, difficulty, questions, batches, tenantId } = req.body;
+    const { title, description, type, duration, difficulty, questions, batches, tenantId, contestType } = req.body;
     const finalTenantId = tenantId || req.user.tenantId || req.user.assignedTenants?.[0];
 
     // Handle 'all' batches case
     let batchIds = [];
-    if (batches === 'all') {
+    let isPublic = false;
+    if (batches === 'all' || (Array.isArray(batches) && batches.length === 0)) {
+      isPublic = true;
       const Batch = require('../models/Batch');
       const allBatches = await Batch.find({ tenant: finalTenantId });
       batchIds = allBatches.map(batch => batch._id);
@@ -38,6 +40,8 @@ const createAssessment = async (req, res) => {
       createdBy: req.user.id,
       tenantId: finalTenantId,
       status: 'draft',
+      contestType: contestType || 'none',
+      isPublic: isPublic,
       maxTabSwitches: req.body.maxTabSwitches || 3
     });
 
@@ -55,7 +59,13 @@ const createAssessment = async (req, res) => {
 const getAssessments = async (req, res) => {
   try {
     const { tenantId } = req.query;
-    const filter = tenantId ? { tenantId } : {};
+    const filter = {
+      $or: [
+        { contestType: 'none' },
+        { contestType: { $exists: false } }
+      ]
+    };
+    if (tenantId) filter.tenantId = tenantId;
     const assessments = await Assessment.find(filter)
       .populate('questions', '_id')
       .populate('frontendQuestions', '_id')
@@ -90,6 +100,93 @@ const getAssessments = async (req, res) => {
   } catch (error) {
     console.error('Error fetching assessments:', error);
     res.status(500).json({ message: 'Error fetching assessments', error: error.message });
+  }
+};
+
+// Get contests
+const getContests = async (req, res) => {
+  try {
+    // Prefer query, fallback to header, fallback to authenticated user's tenant
+    const tenantId = req.query.tenantId || req.headers['x-tenant-id'] || req.user?.tenantId || req.user?.tenant;
+    
+    let query = { 
+      isActive: true, 
+      status: 'active',
+      contestType: { $in: ['daily', 'weekly'] } 
+    };
+    
+    if (tenantId) {
+      query.$or = [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } },
+        { tenantId: null }
+      ];
+    }
+    
+    const contests = await Assessment.find(query)
+      .populate('createdBy', 'name')
+      .select('title description type duration difficulty contestType isPublic startTime endTime createdAt')
+      .sort({ startTime: 1, createdAt: -1 });
+      
+    res.json(contests);
+  } catch (error) {
+    console.error('Error fetching contests:', error);
+    res.status(500).json({ message: 'Error fetching contests', error: error.message });
+  }
+};
+
+// Get instructor contests
+const getInstructorContests = async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+    
+    // Contests can belong to the tenant OR be global (no tenant)
+    const filter = {
+      contestType: { $in: ['daily', 'weekly'] }
+    };
+    
+    if (tenantId) {
+      filter.$or = [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } },
+        { tenantId: null }
+      ];
+    }
+
+    const contests = await Assessment.find(filter)
+      .populate('questions', '_id')
+      .populate('frontendQuestions', '_id')
+      .populate('quizQuestions', '_id')
+      .populate('mongodbPlaygroundQuestions', '_id')
+      .populate('sqlPlaygroundQuestions', '_id')
+      .populate('createdBy', 'name')
+      .populate('batches', 'name')
+      .select('+startTime')
+      .sort({ createdAt: -1 });
+    
+    const contestsWithCounts = contests.map(assessment => {
+      const assessmentData = assessment.toObject();
+      const questionCounts = {
+        programming: assessment.questions?.length || 0,
+        frontend: assessment.frontendQuestions?.length || 0,
+        quiz: assessment.quizQuestions?.length || 0,
+        mongodb: assessment.mongodbPlaygroundQuestions?.length || 0,
+        sql: assessment.sqlPlaygroundQuestions?.length || 0
+      };
+      questionCounts.coding = questionCounts.programming + questionCounts.frontend + questionCounts.mongodb + questionCounts.sql;
+      
+      assessmentData.questionCounts = questionCounts;
+      assessmentData.codingQuestionCount = questionCounts.coding;
+      assessmentData.quizQuestionCount = questionCounts.quiz;
+      assessmentData.totalQuestionCount = assessmentData.codingQuestionCount + questionCounts.quiz;
+      
+      return assessmentData;
+    });
+
+    res.json(contestsWithCounts);
+  } catch (error) {
+    console.error('Error fetching instructor contests:', error);
+    res.status(500).json({ message: 'Error fetching contests', error: error.message });
   }
 };
 
@@ -1032,6 +1129,8 @@ const getMultiAssessmentReport = async (req, res) => {
 module.exports = {
   createAssessment,
   getAssessments,
+  getContests,
+  getInstructorContests,
   getAssessmentById,
   updateAssessment,
   deleteAssessment,
@@ -1056,5 +1155,6 @@ module.exports = {
   markAllInProgressRetake,
   markAllCompletedResume,
   deleteAllAttempts,
-  getMultiAssessmentReport
+  getMultiAssessmentReport,
+  getContests
 };

@@ -63,7 +63,7 @@ const assessmentSchema = new mongoose.Schema({
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
-    required: true
+    required: false
   },
   status: {
     type: String,
@@ -102,6 +102,15 @@ const assessmentSchema = new mongoose.Schema({
     default: false
   },
   showAlgorithmSteps: {
+    type: Boolean,
+    default: false
+  },
+  contestType: {
+    type: String,
+    enum: ['none', 'daily', 'weekly'],
+    default: 'none'
+  },
+  isPublic: {
     type: Boolean,
     default: false
   },

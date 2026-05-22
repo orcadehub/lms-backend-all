@@ -149,6 +149,71 @@ const leaderboardController = {
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
+  },
+
+  getContestLeaderboard: async (req, res) => {
+    try {
+      const { assessmentId } = req.params;
+      const { email } = req.query; // to find current user rank
+      if (!assessmentId) {
+        return res.status(400).json({ message: 'Assessment ID is required' });
+      }
+
+      // Fetch all completed attempts for this assessment
+      const attempts = await AssessmentAttempt.find({ 
+        assessment: assessmentId,
+        attemptStatus: 'COMPLETED'
+      }).populate('student', 'name email profile');
+
+      let leaderboard = attempts.map(attempt => {
+        const startedAt = attempt.startedAt || attempt.createdAt;
+        const completedAt = attempt.completedAt;
+        const durationMs = completedAt && startedAt ? completedAt.getTime() - startedAt.getTime() : 0;
+        
+        return {
+          id: attempt.student?._id,
+          name: attempt.student?.name || 'Unknown',
+          email: attempt.student?.email,
+          profilePic: attempt.student?.profile?.profilePic,
+          percentage: attempt.overallPercentage || 0,
+          duration: durationMs
+        };
+      });
+
+      // Tie breaker logic: sort by percentage DESC, then by duration ASC
+      leaderboard.sort((a, b) => {
+        if (b.percentage !== a.percentage) {
+          return b.percentage - a.percentage;
+        }
+        return a.duration - b.duration;
+      });
+
+      // Add ranks
+      leaderboard = leaderboard.map((user, index) => ({
+        ...user,
+        rank: index + 1
+      }));
+
+      const totalAttempts = leaderboard.length;
+      let currentUserRank = 0;
+
+      if (email) {
+        const userEntry = leaderboard.find(u => u.email === email);
+        if (userEntry) currentUserRank = userEntry.rank;
+      }
+
+      // Top 100
+      const top100 = leaderboard.slice(0, 100);
+
+      res.json({
+        totalAttempts,
+        currentUserRank,
+        leaderboard: top100
+      });
+    } catch (error) {
+      console.error('Error fetching contest leaderboard:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 };
 

@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   createAssessment,
   getAssessments,
+  getContests,
+  getInstructorContests,
   getAssessmentById,
   updateAssessment,
   deleteAssessment,
@@ -34,6 +36,12 @@ router.post('/', createAssessment);
 
 // GET /api/assessments - Get all assessments
 router.get('/', getAssessments);
+
+// GET /api/assessments/contests - Get all contests
+router.get('/contests', getContests);
+
+// GET /api/assessments/instructor-contests - Get contests for instructor dashboard
+router.get('/instructor-contests', getInstructorContests);
 
 // POST /api/assessments/multi-report - Consolidated report across multiple assessments
 router.post('/multi-report', getMultiAssessmentReport);

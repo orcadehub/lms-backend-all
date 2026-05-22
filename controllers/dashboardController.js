@@ -11,7 +11,7 @@ exports.getDashboardData = async (req, res) => {
     }
 
     // Get student data with coding profiles
-    const student = await Student.findOne({ email: email.toLowerCase() }).select('name email createdAt codingProfiles profile loginHistory');
+    const student = await Student.findOne({ email: email.toLowerCase() }).select('name email createdAt codingProfiles profile loginHistory streak maxStreak');
 
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
@@ -120,9 +120,41 @@ exports.getDashboardData = async (req, res) => {
       activityData[a._id] = (activityData[a._id] || 0) + a.count;
     });
 
-    // Calculate rank (placeholder - implement based on your ranking logic)
-    const rank = 0; // TODO: Implement ranking logic
+    // Calculate rank based on total problems solved
+    let rank = 0;
+    try {
+      const emailDomain = email.split('@')[1];
+      const students = await Student.find({ isActive: true, email: { $regex: `@${emailDomain}$`, $options: 'i' } })
+        .select('_id codingProfiles')
+        .lean();
 
+      const practiceStats = await PracticeSubmission.aggregate([
+        { $match: { isCompleted: true } },
+        { $group: { _id: '$userId', solvedCount: { $sum: 1 } } }
+      ]);
+      const practiceMap = {};
+      practiceStats.forEach(stat => {
+        practiceMap[stat._id.toString()] = stat.solvedCount;
+      });
+
+      const leaderboardData = students.map(s => {
+        const profiles = s.codingProfiles || {};
+        const appS = practiceMap[s._id.toString()] || 0;
+        return {
+          id: s._id.toString(),
+          totalSolved: (profiles.leetcode?.totalSolved || 0) + 
+                       (profiles.hackerrank?.totalSolved || 0) + 
+                       (profiles.codeforces?.totalSolved || 0) + 
+                       appS
+        };
+      });
+
+      leaderboardData.sort((a, b) => b.totalSolved - a.totalSolved);
+      const userIndex = leaderboardData.findIndex(s => s.id === studentId.toString());
+      rank = userIndex !== -1 ? userIndex + 1 : 0;
+    } catch(err) {
+      console.error('Rank calculation error:', err);
+    }
     res.json({
       name: student?.name,
       email: student?.email,
@@ -135,7 +167,9 @@ exports.getDashboardData = async (req, res) => {
         accuracy: Math.round(accuracy * 10) / 10,
         overall: Math.round(overall * 10) / 10,
         appSolved,
-        rank
+        rank,
+        streak: student?.streak || 0,
+        maxStreak: student?.maxStreak || 0
       },
       activityData,
       codingProfiles: student?.codingProfiles || {}

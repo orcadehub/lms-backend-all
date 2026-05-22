@@ -192,8 +192,45 @@ router.post('/student/heartbeat', validateApiKey, async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
     const studentId = decoded.studentId || decoded.userId || decoded.id;
     
-    await Student.findByIdAndUpdate(studentId, { lastActiveAt: new Date() });
-    res.json({ success: true });
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const lastUpdateStr = student.lastStreakUpdate ? new Date(student.lastStreakUpdate).toISOString().split('T')[0] : null;
+
+    let { streak, maxStreak } = student;
+    streak = streak || 0;
+    maxStreak = maxStreak || 0;
+
+    if (!lastUpdateStr) {
+      // First time streak
+      streak = 1;
+      maxStreak = 1;
+      student.lastStreakUpdate = now;
+    } else if (lastUpdateStr !== todayStr) {
+      // Different day, check if it was exactly yesterday
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      if (lastUpdateStr === yesterdayStr) {
+        // Continuous streak
+        streak += 1;
+        if (streak > maxStreak) maxStreak = streak;
+      } else {
+        // Streak broken
+        streak = 1;
+      }
+      student.lastStreakUpdate = now;
+    }
+
+    student.streak = streak;
+    student.maxStreak = maxStreak;
+    student.lastActiveAt = now;
+    await student.save();
+
+    res.json({ success: true, streak: student.streak, maxStreak: student.maxStreak });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -1487,14 +1524,23 @@ router.post('/student/assessment-attempt/:attemptId/heartbeat', validateApiKey, 
       return res.status(401).json({ message: 'No token provided' });
     }
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
+
     const { attemptId } = req.params;
     const { timestamp } = req.body;
 
     const AssessmentAttempt = require('../models/AssessmentAttempt');
     
+    // Update the assessment attempt heartbeat
     await AssessmentAttempt.findByIdAndUpdate(attemptId, {
       'sessionData.lastHeartbeat': new Date(timestamp || Date.now())
     });
+
+    // Also update the global student lastActiveAt so they remain in the "Online" count
+    if (studentId) {
+      await Student.findByIdAndUpdate(studentId, { lastActiveAt: new Date() });
+    }
 
     res.json({ message: 'Heartbeat recorded' });
   } catch (error) {
