@@ -159,14 +159,12 @@ const tenantController = {
     }
   },
 
-  // Get instructor's tenants
+  // Get instructor's tenants (returns all active tenants for simplicity)
   getInstructorTenants: async (req, res) => {
     try {
-      const instructor = await Instructor.findById(req.userId).populate('assignedTenants');
-      if (!instructor) {
-        return res.status(404).json({ message: 'Instructor not found' });
-      }
-      res.json(instructor.assignedTenants || []);
+      // For MVP/Simplicity: Return all tenants so instructors can access newly created ones
+      const tenants = await Tenant.find().sort({ createdAt: -1 });
+      res.json(tenants);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
