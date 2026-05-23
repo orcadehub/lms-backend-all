@@ -114,7 +114,7 @@ const tenantController = {
   // Get all tenants (admin only)
   getAllTenants: async (req, res) => {
     try {
-      const tenants = await Tenant.find().sort({ createdAt: -1 });
+      const tenants = await Tenant.find().sort({ createdAt: 1 });
       res.json(tenants);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
@@ -163,7 +163,7 @@ const tenantController = {
   getInstructorTenants: async (req, res) => {
     try {
       // For MVP/Simplicity: Return all tenants so instructors can access newly created ones
-      const tenants = await Tenant.find().sort({ createdAt: -1 });
+      const tenants = await Tenant.find().sort({ createdAt: 1 });
       res.json(tenants);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
