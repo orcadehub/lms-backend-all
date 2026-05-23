@@ -72,7 +72,9 @@ const allowedOrigins = [
   'https://backend.orcadehub.com',
   'https://instructor.orcode.in',
   'https://partners.orcode.in',
-  'http://orcode.in.s3-website.ap-south-2.amazonaws.com'
+  'http://orcode.in.s3-website.ap-south-2.amazonaws.com',
+  'https://mints.it.com',
+  'http://mints.it.com'
 ];
 
 app.use(cors({
@@ -80,7 +82,7 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.orcode.in') || origin.endsWith('.seedingminds.co.in') || origin.endsWith('.orcadehub.com')) {
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.orcode.in') || origin.endsWith('.seedingminds.co.in') || origin.endsWith('.orcadehub.com') || origin.endsWith('.it.com')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
