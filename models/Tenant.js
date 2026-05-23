@@ -52,6 +52,14 @@ const tenantSchema = new mongoose.Schema({
     type: String,
     default: '#1976d2'
   },
+  logoStyle: {
+    height: { type: Number },
+    width: { type: Number },
+    marginLeft: { type: Number },
+    marginRight: { type: Number },
+    marginTop: { type: Number },
+    marginBottom: { type: Number }
+  },
   allowedDomains: [{
     type: String,
     trim: true

@@ -20,7 +20,7 @@ const tenantController = {
   // Create new tenant with enhanced security
   createTenant: async (req, res) => {
     try {
-      const { name, companyName, adminEmail, domain, allowedDomains, themeColor } = req.body;
+      const { name, companyName, adminEmail, domain, allowedDomains, themeColor, logoStyle } = req.body;
       
       const tenant = new Tenant({
         name,
@@ -31,6 +31,7 @@ const tenantController = {
         allowedDomains: allowedDomains ? allowedDomains.split(',').map(d => d.trim()) : [],
         themeColor: themeColor || '#1976d2',
         logoUrl: req.file ? `/uploads/logos/${req.file.filename}` : null,
+        logoStyle: typeof logoStyle === 'string' ? JSON.parse(logoStyle) : logoStyle,
         settings: {
           allowedOrigins: [domain],
           features: ['quizzes', 'assessments', 'reports'],
@@ -104,6 +105,7 @@ const tenantController = {
         logoUrl: tenant.logoUrl,
         faviconUrl: tenant.faviconUrl || tenant.logoUrl,
         themeColor: tenant.themeColor || '#1976d2',
+        logoStyle: tenant.logoStyle,
         allowedDomains: tenant.allowedDomains
       });
     } catch (error) {
@@ -116,6 +118,20 @@ const tenantController = {
     try {
       const tenants = await Tenant.find().sort({ createdAt: 1 });
       res.json(tenants);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Public client list for OrcadeHub landing (no secrets)
+  getPublicClients: async (req, res) => {
+    try {
+      const clients = await Tenant.find(
+        { isActive: true, domain: { $ne: 'orcadehub.com' } },
+        { name: 1, domain: 1, logoUrl: 1, faviconUrl: 1, companyName: 1, themeColor: 1 }
+      ).sort({ name: 1 });
+
+      res.json(clients);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
