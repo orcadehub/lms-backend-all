@@ -15,11 +15,10 @@ const aptitudeQuestionController = {
     }
   },
 
-  // Get all aptitude questions for the logged-in instructor
+  // Get all aptitude questions
   getAllQuestions: async (req, res) => {
     try {
-      const instructorId = req.user._id;
-      const questions = await AptitudeQuestion.find({ createdBy: instructorId })
+      const questions = await AptitudeQuestion.find()
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 });
       res.json(questions);

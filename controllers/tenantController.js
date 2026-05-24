@@ -175,12 +175,17 @@ const tenantController = {
     }
   },
 
-  // Get instructor's tenants (returns all active tenants for simplicity)
+  // Get instructor's tenants (returns only allowed tenants)
   getInstructorTenants: async (req, res) => {
     try {
-      // For MVP/Simplicity: Return all tenants so instructors can access newly created ones
-      const tenants = await Tenant.find().sort({ createdAt: 1 });
-      res.json(tenants);
+      const instructor = await Instructor.findById(req.user._id).populate({
+        path: 'assignedTenants',
+        match: { isActive: true }
+      });
+      if (!instructor) {
+        return res.status(404).json({ message: 'Instructor not found' });
+      }
+      res.json(instructor.assignedTenants || []);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }

@@ -3,7 +3,7 @@ const Student = require('../models/Student');
 
 exports.createCertificates = async (req, res) => {
   try {
-    const { title, type, duration, startDate, issueDate, description, skills, studentIds, tenantId, signatureName, signatureDesignation } = req.body;
+    const { title, type, duration, startDate, issueDate, description, skills, studentIds, tenantId, signatureName, signatureDesignation, signatureName2, signatureDesignation2, design } = req.body;
     
     // Iterate and create
     const createdCertificates = [];
@@ -23,7 +23,10 @@ exports.createCertificates = async (req, res) => {
         description,
         skills,
         signatureName,
-        signatureDesignation
+        signatureDesignation,
+        signatureName2,
+        signatureDesignation2,
+        design
       });
       
       await cert.save();

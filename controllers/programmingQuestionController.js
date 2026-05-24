@@ -18,11 +18,33 @@ const programmingQuestionController = {
       });
       
       const allTopics = topics.map(t => ({
+        _id: t._id,
+        name: t.name,
+        description: t.description,
         topic: t.name,
-        count: countsMap[t.name] || 0
+        questionCount: countsMap[t.name] || 0
       }));
       
       res.json(allTopics);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  // Add new topic
+  addProgrammingTopic: async (req, res) => {
+    try {
+      const ProgrammingTopic = require('../models/ProgrammingTopic');
+      const { name, description, domain, order } = req.body;
+      const newTopic = new ProgrammingTopic({
+        name,
+        description,
+        domain,
+        order,
+        isActive: true
+      });
+      await newTopic.save();
+      res.status(201).json({ message: 'Topic added successfully', topic: newTopic });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
@@ -36,7 +58,7 @@ const programmingQuestionController = {
         topic, 
         assessmentType: 'programming',
         isActive: true 
-      }).select('title description difficulty tags');
+      });
       res.json(questions);
     } catch (error) {
       res.status(500).json({ message: error.message });

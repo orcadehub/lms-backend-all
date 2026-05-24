@@ -23,7 +23,12 @@ const companySpecificQuestionSchema = new mongoose.Schema({
     isPublic: { type: Boolean, required: true }
   }],
   tags: { type: [String], required: true },
-  assessmentType: { type: String, enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'system-design', 'aptitude', 'technical', 'behavioral'], required: true },
+  assessmentType: { type: String, enum: ['programming', 'frontend', 'backend', 'fullstack', 'database', 'system-design', 'technical', 'behavioral'], required: true },
+  
+  // MCQ specific fields
+  options: [{ type: String }],
+  correctAnswer: { type: String },
+  
   example: {
     input: { type: String, required: true },
     output: { type: String, required: true },

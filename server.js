@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
@@ -38,6 +39,7 @@ const certificateRoutes = require('./routes/certificateRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const studentCourseRoutes = require('./routes/studentCourseRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const certificateDesignRoutes = require('./routes/certificateDesignRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -95,6 +97,11 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb', parameterLimit: 50000 }));
+
+// Serve uploaded tenant logos and other static files referenced as /uploads/...
+const uploadsRoot =
+  process.env.NODE_ENV === 'production' ? '/tmp/uploads' : path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsRoot));
 
 // Database connection with serverless optimization
 let cachedConnection = null;
@@ -161,6 +168,7 @@ app.use('/api/ai-mock', aiMockRoutes);
 app.use('/api/e2b', e2bRoutes);
 app.use('/api/genai-questions', genaiQuestionRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/certificate-designs', certificateDesignRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/messages', messageRoutes);
 

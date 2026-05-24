@@ -58,10 +58,22 @@ const certificateSchema = new mongoose.Schema({
     required: true,
     default: 'Authorized Signatory'
   },
+  signatureName2: {
+    type: String,
+    default: ''
+  },
+  signatureDesignation2: {
+    type: String,
+    default: ''
+  },
   status: {
     type: String,
     enum: ['active', 'revoked'],
     default: 'active'
+  },
+  design: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
   }
 }, {
   timestamps: true

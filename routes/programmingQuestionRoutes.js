@@ -7,6 +7,9 @@ const { auth } = require('../middleware/auth');
 // Get all topics with question counts (public for student practice)
 router.get('/topics', programmingQuestionController.getProgrammingTopics);
 
+// Add new topic (instructor/admin only)
+router.post('/topics', auth, programmingQuestionController.addProgrammingTopic);
+
 // Get questions by topic
 router.get('/questions/:topic', programmingQuestionController.getQuestionsByTopic);
 
