@@ -57,6 +57,8 @@ const leaderboardController = {
           leetcodeUsername: profiles.leetcode?.username,
           hackerrankUsername: profiles.hackerrank?.username,
           codeforcesUsername: profiles.codeforces?.username,
+          codechefUsername: profiles.codechef?.username,
+          codechefRating: profiles.codechef?.rating || 0,
           appSolved
         };
       });
