@@ -62,5 +62,6 @@ router.post('/bulk-reset-password', auth, checkPermission('manage_students'), st
 router.get('/profile', auth, studentController.getProfile);
 router.put('/update-profile', auth, studentController.updateProfile);
 router.post('/connect-coding-profiles', auth, studentController.connectCodingProfiles);
+router.post('/dsa-solved', auth, studentController.toggleDSASolved);
 
 module.exports = router;

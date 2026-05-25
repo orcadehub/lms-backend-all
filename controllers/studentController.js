@@ -611,6 +611,34 @@ const studentController = {
     } catch (error) {
       res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
+  },
+
+  // Toggle DSA solved status for a user
+  toggleDSASolved: async (req, res) => {
+    try {
+      const { title } = req.body;
+      if (!title) return res.status(400).json({ message: 'Title is required' });
+
+      const student = await Student.findById(req.user.id);
+      if (!student) return res.status(404).json({ message: 'Student not found' });
+
+      if (!student.selfSolvedDSA) {
+        student.selfSolvedDSA = [];
+      }
+
+      const index = student.selfSolvedDSA.indexOf(title);
+      if (index === -1) {
+        student.selfSolvedDSA.push(title);
+      } else {
+        student.selfSolvedDSA.splice(index, 1);
+      }
+
+      await student.save();
+      res.json({ success: true, selfSolvedDSA: student.selfSolvedDSA });
+    } catch (error) {
+      console.error('toggleDSASolved error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
   }
 };
 

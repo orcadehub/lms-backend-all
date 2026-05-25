@@ -137,6 +137,9 @@ const studentSchema = new mongoose.Schema({
   },
   loginHistory: [{
     type: Date
+  }],
+  selfSolvedDSA: [{
+    type: String
   }]
 }, {
   timestamps: true
