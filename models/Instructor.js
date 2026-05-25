@@ -37,9 +37,26 @@ const instructorSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant'
   }],
+  tenantPermissions: [{
+    tenant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tenant',
+      required: true
+    },
+    institutions: [{
+      type: String,
+      trim: true,
+      lowercase: true
+    }],
+    maxStudents: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  }],
   permissions: [{
     type: String,
-    enum: ['create_quizzes', 'create_assessments', 'manage_contests', 'manage_company_specific', 'manage_practice_questions', 'manage_aptitude_questions', 'manage_students', 'view_reports', 'manage_study_materials', 'manage_certificates', 'view_analytics']
+    enum: ['create_quizzes', 'create_assessments', 'manage_contests', 'manage_company_specific', 'manage_practice_questions', 'manage_aptitude_questions', 'manage_students', 'manage_batches', 'view_reports', 'manage_study_materials', 'manage_certificates', 'view_analytics']
   }],
   isActive: {
     type: Boolean,
@@ -52,6 +69,7 @@ const instructorSchema = new mongoose.Schema({
 // Indexes for API optimization
 instructorSchema.index({ email: 1 }, { unique: true }); // Already unique, but explicit index
 instructorSchema.index({ assignedTenants: 1 }); // Find instructors by tenant
+instructorSchema.index({ 'tenantPermissions.tenant': 1 });
 instructorSchema.index({ isActive: 1 }); // Get active instructors
 instructorSchema.index({ email: 1, isActive: 1 }); // Login optimization
 

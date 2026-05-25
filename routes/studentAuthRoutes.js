@@ -3,8 +3,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 const { validateApiKey } = require('../middleware/apiKeyAuth');
+const { assertStudentCanLogin, getInstitutionFromEmail } = require('../utils/studentAccess');
 
 const router = express.Router();
+
+const assessmentStudentAccessClause = (studentId) => ({
+  $or: [
+    { students: { $exists: false } },
+    { students: { $size: 0 } },
+    { students: studentId }
+  ]
+});
 
 // Helper function to sort arrays deeply for comparison
 const sortArrayDeep = (data) => {
@@ -56,6 +65,11 @@ router.post('/student/login', validateApiKey, async (req, res) => {
       });
     }
 
+    if (!student.institution) {
+      student.institution = getInstitutionFromEmail(student.email);
+    }
+    await assertStudentCanLogin(student, req.tenant);
+
     // Generate JWT token
     const token = jwt.sign(
       { 
@@ -82,7 +96,7 @@ router.post('/student/login', validateApiKey, async (req, res) => {
 
   } catch (error) {
     console.error('Student login error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
   }
 });
 
@@ -1036,6 +1050,15 @@ router.get('/student/assessments', validateApiKey, async (req, res) => {
       $or: [
         { batches: [] },
         { batches: { $in: batchIds } }
+      ],
+      $and: [
+        {
+          $or: [
+            { students: { $exists: false } },
+            { students: { $size: 0 } },
+            { students: studentId }
+          ]
+        }
       ]
     }).sort({ createdAt: -1 });
 
@@ -1082,6 +1105,7 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
 
@@ -1092,7 +1116,8 @@ router.get('/student/assessment/:assessmentId', validateApiKey, async (req, res)
         { tenantId: tenantId },
         { tenantId: { $exists: false } },
         { tenantId: null }
-      ]
+      ],
+      $and: [assessmentStudentAccessClause(studentId)]
     })
     .populate('questions')
     .populate('frontendQuestions')
@@ -1135,6 +1160,7 @@ router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req,
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
 
@@ -1145,7 +1171,8 @@ router.get('/student/assessment/:assessmentId/info', validateApiKey, async (req,
         { tenantId: tenantId },
         { tenantId: { $exists: false } },
         { tenantId: null }
-      ]
+      ],
+      $and: [assessmentStudentAccessClause(studentId)]
     }).select('-questions -frontendQuestions -quizQuestions -mongodbPlaygroundQuestions -sqlPlaygroundQuestions');
 
     if (!assessment) {
@@ -1179,6 +1206,7 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const studentId = decoded.studentId || decoded.userId || decoded.id;
     const tenantId = req.tenantId;
     const { assessmentId } = req.params;
 
@@ -1189,7 +1217,8 @@ router.get('/student/assessment/:assessmentId/questions', validateApiKey, async 
         { tenantId: tenantId },
         { tenantId: { $exists: false } },
         { tenantId: null }
-      ]
+      ],
+      $and: [assessmentStudentAccessClause(studentId)]
     })
     .populate({
       path: 'questions',
@@ -1327,6 +1356,9 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       if (latestAttempt.attemptStatus === 'RETAKE_ALLOWED') {
         // Reset the existing attempt for retake instead of creating new one
         const assessment = await Assessment.findById(assessmentId);
+        if (assessment?.students?.length && !assessment.students.some((id) => id.toString() === studentId.toString())) {
+          return res.status(403).json({ message: 'Assessment is not assigned to this student' });
+        }
         
         latestAttempt.attemptStatus = 'IN_PROGRESS';
         latestAttempt.startedAt = new Date();
@@ -1367,6 +1399,9 @@ router.post('/student/assessment/:assessmentId/start', validateApiKey, async (re
       .populate('sqlPlaygroundQuestions');
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
+    }
+    if (assessment.students?.length && !assessment.students.some((id) => id.toString() === studentId.toString())) {
+      return res.status(403).json({ message: 'Assessment is not assigned to this student' });
     }
 
     // Check if assessment can be started based on startTime and earlyStartBuffer

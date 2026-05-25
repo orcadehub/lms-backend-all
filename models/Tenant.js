@@ -64,6 +64,16 @@ const tenantSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
+  maxStudents: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  blockedInstitutions: [{
+    type: String,
+    trim: true,
+    lowercase: true
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -85,6 +95,10 @@ const tenantSchema = new mongoose.Schema({
       type: Number,
       default: 10000
     }
+  },
+  lastCodingProfilesSync: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

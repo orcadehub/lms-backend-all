@@ -22,6 +22,10 @@ const batchSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  accessBlocked: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

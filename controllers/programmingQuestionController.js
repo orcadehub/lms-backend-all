@@ -22,7 +22,7 @@ const programmingQuestionController = {
         name: t.name,
         description: t.description,
         topic: t.name,
-        questionCount: countsMap[t.name] || 0
+        count: countsMap[t.name] || 0
       }));
       
       res.json(allTopics);

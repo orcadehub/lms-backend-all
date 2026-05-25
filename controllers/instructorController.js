@@ -1,11 +1,15 @@
 const { validationResult } = require('express-validator');
 const Instructor = require('../models/Instructor');
+const { normalizeTenantPermissions } = require('../utils/studentAccess');
 
 const instructorController = {
   // Get all instructors
   getAllInstructors: async (req, res) => {
     try {
-      const instructors = await Instructor.find().populate('assignedTenants', 'name domain').select('-password');
+      const instructors = await Instructor.find()
+        .populate('assignedTenants', 'name domain maxStudents blockedInstitutions')
+        .populate('tenantPermissions.tenant', 'name domain')
+        .select('-password');
       res.json(instructors);
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
@@ -23,7 +27,8 @@ const instructorController = {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { name, email, password, expertise, permissions, assignedTenants } = req.body;
+      const { name, email, password, expertise, permissions, assignedTenants, tenantPermissions } = req.body;
+      const normalizedAssignedTenants = Array.isArray(assignedTenants) ? assignedTenants : [];
 
       // Check if instructor already exists
       const existingInstructor = await Instructor.findOne({ email });
@@ -37,7 +42,8 @@ const instructorController = {
         password,
         profile: { expertise: Array.isArray(expertise) ? expertise : [expertise] },
         permissions: Array.isArray(permissions) ? permissions : [],
-        assignedTenants: Array.isArray(assignedTenants) ? assignedTenants : []
+        assignedTenants: normalizedAssignedTenants,
+        tenantPermissions: normalizeTenantPermissions(tenantPermissions, normalizedAssignedTenants)
       });
 
       await instructor.save();
@@ -52,7 +58,8 @@ const instructorController = {
   updateInstructor: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, email, expertise, permissions, assignedTenants } = req.body;
+      const { name, email, expertise, permissions, assignedTenants, tenantPermissions } = req.body;
+      const normalizedAssignedTenants = Array.isArray(assignedTenants) ? assignedTenants : [];
 
       const instructor = await Instructor.findByIdAndUpdate(
         id,
@@ -61,10 +68,13 @@ const instructorController = {
           email,
           'profile.expertise': expertise,
           permissions,
-          assignedTenants
+          assignedTenants: normalizedAssignedTenants,
+          tenantPermissions: normalizeTenantPermissions(tenantPermissions, normalizedAssignedTenants)
         },
         { new: true }
-      ).populate('assignedTenants', 'name domain').select('-password');
+      ).populate('assignedTenants', 'name domain maxStudents blockedInstitutions')
+        .populate('tenantPermissions.tenant', 'name domain')
+        .select('-password');
 
       if (!instructor) {
         return res.status(404).json({ message: 'Instructor not found' });

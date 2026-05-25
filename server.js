@@ -140,6 +140,8 @@ connectDB().then(() => {
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', studentAuthRoutes);
 app.use('/api/student', studentCourseRoutes);
+app.use('/api/student/mcq-attempts', require('./routes/mcqAttemptRoutes'));
+app.use('/api/student/gamified-attempts', require('./routes/gamifiedAttemptRoutes'));
 app.use('/api/practice-submissions', practiceSubmissionRoutes);
 app.use('/api/piston', pistonRoutes);
 app.use('/api/users', userRoutes);

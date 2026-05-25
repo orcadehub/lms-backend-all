@@ -3,6 +3,8 @@ const { validationResult } = require('express-validator');
 const Admin = require('../models/Admin');
 const Instructor = require('../models/Instructor');
 const Student = require('../models/Student');
+const Tenant = require('../models/Tenant');
+const { assertStudentCanLogin, getInstitutionFromEmail } = require('../utils/studentAccess');
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -53,6 +55,14 @@ const authController = {
 
       // Record activity if student
       if (userModel === 'Student') {
+        const tenant = await Tenant.findById(user.tenant);
+        if (!tenant || !tenant.isActive) {
+          return res.status(403).json({ message: 'Tenant access is blocked' });
+        }
+        if (!user.institution) {
+          user.institution = getInstitutionFromEmail(user.email);
+        }
+        await assertStudentCanLogin(user, tenant);
         user.lastActiveAt = new Date();
         // Check if today's date already exists in history to avoid duplicates
         const today = new Date().toISOString().split('T')[0];
@@ -77,7 +87,7 @@ const authController = {
         }
       });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   },
 

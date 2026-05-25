@@ -80,6 +80,15 @@ const studentSchema = new mongoose.Schema({
     ref: 'Tenant',
     required: true
   },
+  institution: {
+    type: String,
+    trim: true,
+    lowercase: true
+  },
+  createdByInstructor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Instructor'
+  },
   enrolledCourses: [{
     course: {
       type: mongoose.Schema.Types.ObjectId,
@@ -136,6 +145,8 @@ const studentSchema = new mongoose.Schema({
 // Indexes for login optimization
 studentSchema.index({ email: 1, tenant: 1 }); // Compound index for multi-tenant login
 studentSchema.index({ tenant: 1, isActive: 1 }); // Index for active students by tenant
+studentSchema.index({ tenant: 1, institution: 1 });
+studentSchema.index({ createdByInstructor: 1, tenant: 1 });
 
 studentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

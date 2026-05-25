@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const MCQAttempt = require('../models/MCQAttempt');
-const { authenticateStudent } = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 
 // Save MCQ attempt
-router.post('/attempt', authenticateStudent, async (req, res) => {
+router.post('/attempt', auth, async (req, res) => {
   try {
     const { dataset, questionIndex, isCorrect } = req.body;
     
     const attempt = new MCQAttempt({
-      studentId: req.student._id,
+      studentId: req.user._id,
       dataset,
       questionIndex,
       isCorrect
@@ -23,10 +23,10 @@ router.post('/attempt', authenticateStudent, async (req, res) => {
 });
 
 // Get student progress for a dataset
-router.get('/progress/:dataset', authenticateStudent, async (req, res) => {
+router.get('/progress/:dataset', auth, async (req, res) => {
   try {
     const attempts = await MCQAttempt.find({
-      studentId: req.student._id,
+      studentId: req.user._id,
       dataset: req.params.dataset
     }).select('questionIndex isCorrect');
     

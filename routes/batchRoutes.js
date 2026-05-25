@@ -22,38 +22,38 @@ const upload = multer({
 
 const router = express.Router();
 
-// Get all batches (instructor only)
-router.get('/', auth, checkPermission('manage_students'), batchController.getAllBatches);
+// Get all batches for the selected tenant. Several instructor pages need read-only batch selection.
+router.get('/', auth, batchController.getAllBatches);
 
 // Create batch (instructor only)
-router.post('/', auth, checkPermission('manage_students'), [
+router.post('/', auth, checkPermission('manage_batches'), [
   body('name').trim().isLength({ min: 2 }).withMessage('Batch name must be at least 2 characters'),
   body('description').optional().trim()
 ], batchController.createBatch);
 
 // Update batch (instructor only)
-router.put('/:id', auth, checkPermission('manage_students'), [
+router.put('/:id', auth, checkPermission('manage_batches'), [
   body('name').trim().isLength({ min: 2 }).withMessage('Batch name must be at least 2 characters'),
   body('description').optional().trim()
 ], batchController.updateBatch);
 
 // Delete batch (instructor only)
-router.delete('/:id', auth, checkPermission('manage_students'), batchController.deleteBatch);
+router.delete('/:id', auth, checkPermission('manage_batches'), batchController.deleteBatch);
 
 // Add students to batch (instructor only)
-router.post('/:id/students', auth, checkPermission('manage_students'), [
+router.post('/:id/students', auth, checkPermission('manage_batches'), [
   body('studentIds').isArray().withMessage('Student IDs must be an array')
 ], batchController.addStudentsToBatch);
 
 // Remove students from batch (instructor only)
-router.delete('/:id/students', auth, checkPermission('manage_students'), [
+router.delete('/:id/students', auth, checkPermission('manage_batches'), [
   body('studentIds').isArray().withMessage('Student IDs must be an array')
 ], batchController.removeStudentsFromBatch);
 
 // Validate students from Excel file (instructor only)
-router.post('/validate-students', auth, checkPermission('manage_students'), upload.single('file'), batchController.validateStudentsFromFile);
+router.post('/validate-students', auth, checkPermission('manage_batches'), upload.single('file'), batchController.validateStudentsFromFile);
 
 // Upload students to existing batch from Excel file (instructor only)
-router.post('/:id/upload-students', auth, checkPermission('manage_students'), upload.single('file'), batchController.uploadStudentsToBatch);
+router.post('/:id/upload-students', auth, checkPermission('manage_batches'), upload.single('file'), batchController.uploadStudentsToBatch);
 
 module.exports = router;

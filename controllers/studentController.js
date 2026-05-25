@@ -1,8 +1,21 @@
 const { validationResult } = require('express-validator');
 const Student = require('../models/Student');
+const Batch = require('../models/Batch');
+const Tenant = require('../models/Tenant');
+const Assessment = require('../models/Assessment');
+const AssessmentAttempt = require('../models/AssessmentAttempt');
 const XLSX = require('xlsx');
 const multer = require('multer');
 const path = require('path');
+const { deleteStudentsAndRelatedData } = require('../services/studentDeletionService');
+const {
+  assertStudentCapacity,
+  buildStudentScope,
+  ensureInstructorTenantAccess,
+  getInstitutionFromEmail
+} = require('../utils/studentAccess');
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -22,11 +35,12 @@ const studentController = {
   // Get all students for instructor's selected tenant
   getAllStudents: async (req, res) => {
     try {
-      const { tenantId } = req.query;
-      const students = await Student.find({ tenant: tenantId }).select('-password');
+      const { tenantId, institution } = req.query;
+      const scope = await buildStudentScope(req.user, tenantId, institution);
+      const students = await Student.find(scope).select('-password');
       res.json(students);
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   },
 
@@ -40,6 +54,14 @@ const studentController = {
 
       const { name, email, password, tenantId } = req.body;
       const selectedTenantId = tenantId || req.user.assignedTenants[0]; // Use provided tenantId or fallback to first assigned tenant
+      const institution = getInstitutionFromEmail(email);
+      const access = await ensureInstructorTenantAccess(req.user, selectedTenantId, institution);
+      await assertStudentCapacity({
+        tenantId: selectedTenantId,
+        instructorId: req.user.role === 'instructor' ? req.user._id : null,
+        grant: access?.grant,
+        requestedCount: 1
+      });
 
       // Check if student already exists
       const existingStudent = await Student.findOne({ email });
@@ -51,13 +73,15 @@ const studentController = {
         name,
         email,
         password,
-        tenant: selectedTenantId
+        tenant: selectedTenantId,
+        institution,
+        createdByInstructor: req.user.role === 'instructor' ? req.user._id : undefined
       });
 
       await student.save();
       res.status(201).json({ message: 'Student created successfully', student });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   },
 
@@ -65,22 +89,22 @@ const studentController = {
   updateStudent: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, email, password } = req.body;
+      const { name, password, tenantId } = req.body;
 
       const student = await Student.findById(id);
       if (!student) {
         return res.status(404).json({ message: 'Student not found' });
       }
+      await ensureInstructorTenantAccess(req.user, tenantId || student.tenant, student.institution || getInstitutionFromEmail(student.email));
 
       if (name) student.name = name;
-      if (email) student.email = email;
       if (password && password.trim() !== '') student.password = password;
       
       await student.save();
 
       res.json({ message: 'Student updated successfully', student: { _id: student._id, name: student.name, email: student.email } });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   },
 
@@ -89,6 +113,7 @@ const studentController = {
     try {
       const { defaultPassword, tenantId } = req.body;
       const selectedTenantId = tenantId || req.user.assignedTenants[0];
+      const access = await ensureInstructorTenantAccess(req.user, selectedTenantId);
       
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -100,62 +125,204 @@ const studentController = {
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
+      const validRows = [];
       const failedUploads = [];
-      const successCount = { count: 0 };
 
       for (const row of data) {
-        try {
-          // Handle different case variations of column names
-          const name = row.name || row.Name || row.NAME || row.student_name || row['Student Name'];
-          const email = row.email || row.Email || row.EMAIL || row.student_email || row['Student Email'];
-          
-          if (!name || !email) {
-            failedUploads.push({ name: name || 'N/A', email: email || 'N/A', reason: 'Missing name or email' });
-            continue;
-          }
-
-          // Check if student already exists
-          const existingStudent = await Student.findOne({ email });
-          if (existingStudent) {
-            failedUploads.push({ name, email, reason: 'Student already exists' });
-            continue;
-          }
-
-          const student = new Student({
-            name,
-            email,
-            password: defaultPassword,
-            tenant: selectedTenantId
-          });
-
-          await student.save();
-          successCount.count++;
-        } catch (error) {
-          failedUploads.push({ name: row.name || 'N/A', email: row.email || 'N/A', reason: error.message });
+        const name = row.name || row.Name || row.NAME || row.student_name || row['Student Name'];
+        const email = row.email || row.Email || row.EMAIL || row.student_email || row['Student Email'];
+        const institution = getInstitutionFromEmail(email);
+        
+        if (!name || !email) {
+          failedUploads.push({ name: name || 'N/A', email: email || 'N/A', reason: 'Missing name or email' });
+          continue;
         }
+
+        if (access.allowedInstitutions.length > 0 && !access.allowedInstitutions.includes(institution)) {
+          failedUploads.push({ name, email, reason: 'Institution is not allowed for this instructor' });
+          continue;
+        }
+
+        const existingStudent = await Student.findOne({ email });
+        if (existingStudent) {
+          failedUploads.push({ name, email, reason: 'Student already exists' });
+          continue;
+        }
+
+        validRows.push({ name, email, institution });
+      }
+
+      await assertStudentCapacity({
+        tenantId: selectedTenantId,
+        instructorId: req.user.role === 'instructor' ? req.user._id : null,
+        grant: access?.grant,
+        requestedCount: validRows.length
+      });
+
+      let successCount = 0;
+      for (const row of validRows) {
+        const student = new Student({
+          name: row.name,
+          email: row.email,
+          password: defaultPassword,
+          tenant: selectedTenantId,
+          institution: row.institution,
+          createdByInstructor: req.user.role === 'instructor' ? req.user._id : undefined
+        });
+        await student.save();
+        successCount++;
       }
 
       res.json({
-        message: `Bulk upload completed. ${successCount.count} students added successfully.`,
-        successCount: successCount.count,
+        message: `Bulk upload completed. ${successCount} students added successfully.`,
+        successCount,
         failedUploads
       });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   },
 
   // Delete student
   deleteStudent: async (req, res) => {
     try {
+      res.status(403).json({ message: 'Only admins can delete students' });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  adminDeleteStudent: async (req, res) => {
+    try {
       const { id } = req.params;
-      
-      const student = await Student.findByIdAndDelete(id);
+      const student = await Student.findById(id).select('_id');
       if (!student) {
         return res.status(404).json({ message: 'Student not found' });
       }
+      const result = await deleteStudentsAndRelatedData([student._id]);
+      res.json({ message: 'Student and related data deleted successfully', result });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
 
-      res.json({ message: 'Student deleted successfully' });
+  adminDeleteStudentsByBatch: async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const batch = await Batch.findById(batchId).select('students');
+      if (!batch) {
+        return res.status(404).json({ message: 'Batch not found' });
+      }
+      const result = await deleteStudentsAndRelatedData(batch.students || []);
+      res.json({ message: 'Batch students and related data deleted successfully', result });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  adminDeleteStudentsByInstitution: async (req, res) => {
+    try {
+      const { tenantId, institution } = req.params;
+      const students = await Student.find({
+        tenant: tenantId,
+        $or: [
+          { institution: institution.toLowerCase() },
+          { email: new RegExp(`@${escapeRegex(institution)}$`, 'i') }
+        ]
+      }).select('_id');
+      const result = await deleteStudentsAndRelatedData(students.map((student) => student._id));
+      res.json({ message: 'Institution students and related data deleted successfully', result });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  adminDeleteStudentsByTenant: async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const students = await Student.find({ tenant: tenantId }).select('_id');
+      const result = await deleteStudentsAndRelatedData(students.map((student) => student._id));
+      res.json({ message: 'Tenant students and related data deleted successfully', result });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  adminSetBatchAccess: async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const { blocked } = req.body;
+      const batch = await Batch.findByIdAndUpdate(
+        batchId,
+        { accessBlocked: Boolean(blocked), isActive: !Boolean(blocked) },
+        { new: true }
+      );
+      if (!batch) {
+        return res.status(404).json({ message: 'Batch not found' });
+      }
+      res.json({ message: `Batch access ${blocked ? 'blocked' : 'enabled'} successfully`, batch });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  adminSetInstitutionAccess: async (req, res) => {
+    try {
+      const { tenantId, institution } = req.params;
+      const { blocked } = req.body;
+      const update = blocked
+        ? { $addToSet: { blockedInstitutions: institution.toLowerCase() } }
+        : { $pull: { blockedInstitutions: institution.toLowerCase() } };
+      const tenant = await Tenant.findByIdAndUpdate(tenantId, update, { new: true });
+      if (!tenant) {
+        return res.status(404).json({ message: 'Tenant not found' });
+      }
+      res.json({ message: `Institution access ${blocked ? 'blocked' : 'enabled'} successfully`, tenant });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  getTenantAnalytics: async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const tenant = await Tenant.findById(tenantId).lean();
+      if (!tenant) {
+        return res.status(404).json({ message: 'Tenant not found' });
+      }
+
+      const students = await Student.find({ tenant: tenantId }).select('name email institution isActive').lean();
+      const institutions = {};
+      students.forEach((student) => {
+        const institution = student.institution || getInstitutionFromEmail(student.email) || 'unknown';
+        institutions[institution] = institutions[institution] || { name: institution, students: 0, activeStudents: 0, blocked: false };
+        institutions[institution].students++;
+        if (student.isActive) institutions[institution].activeStudents++;
+        institutions[institution].blocked = (tenant.blockedInstitutions || []).includes(institution);
+      });
+
+      const [batches, assessments, attempts] = await Promise.all([
+        Batch.find({ tenant: tenantId }).select('name students isActive accessBlocked').lean(),
+        Assessment.countDocuments({ tenantId }),
+        AssessmentAttempt.countDocuments({ tenantId })
+      ]);
+
+      res.json({
+        tenant,
+        metrics: {
+          totalStudents: students.length,
+          activeStudents: students.filter((student) => student.isActive).length,
+          maxStudents: tenant.maxStudents || 0,
+          totalInstitutions: Object.keys(institutions).length,
+          totalBatches: batches.length,
+          blockedBatches: batches.filter((batch) => batch.accessBlocked || !batch.isActive).length,
+          totalAssessments: assessments,
+          totalAssessmentAttempts: attempts
+        },
+        institutions: Object.values(institutions).sort((a, b) => a.name.localeCompare(b.name)),
+        batches,
+        students
+      });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
@@ -421,12 +588,14 @@ const studentController = {
     try {
       const { tenantId, newPassword } = req.body;
       const selectedTenantId = tenantId || req.user.assignedTenants[0];
+      await ensureInstructorTenantAccess(req.user, selectedTenantId);
 
       if (!newPassword || newPassword.length < 6) {
         return res.status(400).json({ message: 'Password must be at least 6 characters' });
       }
 
-      const students = await Student.find({ tenant: selectedTenantId });
+      const scope = await buildStudentScope(req.user, selectedTenantId);
+      const students = await Student.find(scope);
       
       if (students.length === 0) {
         return res.status(404).json({ message: 'No students found for this tenant' });
@@ -440,7 +609,7 @@ const studentController = {
 
       res.json({ message: `Successfully reset passwords for ${students.length} students.` });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
     }
   }
 };

@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const studentController = require('../controllers/studentController');
-const { auth } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/permissions');
 const multer = require('multer');
 const path = require('path');
@@ -22,8 +22,20 @@ const upload = multer({
 
 const router = express.Router();
 
+// Admin-only analytics, blocking, and destructive cleanup routes
+router.get('/admin/tenants/:tenantId/analytics', auth, authorize('admin'), studentController.getTenantAnalytics);
+router.delete('/admin/:id', auth, authorize('admin'), studentController.adminDeleteStudent);
+router.delete('/admin/tenant/:tenantId', auth, authorize('admin'), studentController.adminDeleteStudentsByTenant);
+router.delete('/admin/tenant/:tenantId/institution/:institution', auth, authorize('admin'), studentController.adminDeleteStudentsByInstitution);
+router.delete('/admin/batch/:batchId', auth, authorize('admin'), studentController.adminDeleteStudentsByBatch);
+router.patch('/admin/batch/:batchId/access', auth, authorize('admin'), studentController.adminSetBatchAccess);
+router.patch('/admin/tenant/:tenantId/institution/:institution/access', auth, authorize('admin'), studentController.adminSetInstitutionAccess);
+
 // Get all students (instructor only)
-router.get('/', auth, checkPermission('manage_students'), studentController.getAllStudents);
+router.get('/', auth, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  return checkPermission('manage_students')(req, res, next);
+}, studentController.getAllStudents);
 
 // Create student (instructor only)
 router.post('/', auth, checkPermission('manage_students'), [

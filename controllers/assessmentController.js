@@ -2,6 +2,63 @@ const { validationResult } = require('express-validator');
 const Assessment = require('../models/Assessment');
 const AssessmentQuestion = require('../models/AssessmentQuestion');
 const ExcelJS = require('exceljs');
+const Student = require('../models/Student');
+const Batch = require('../models/Batch');
+const { ensureInstructorTenantAccess, getScopedStudentIds, getInstitutionFromEmail } = require('../utils/studentAccess');
+
+const getScopedAssessmentStudents = async (req, tenantId, batchIds = []) => {
+  if (req.user.role !== 'instructor') return [];
+
+  const access = await ensureInstructorTenantAccess(req.user, tenantId);
+  if (!access.allowedInstitutions.length) return [];
+
+  const scopedStudentIds = await getScopedStudentIds(req.user, tenantId);
+  if (!batchIds.length) return scopedStudentIds;
+
+  const batches = await Batch.find({ _id: { $in: batchIds }, tenant: tenantId }).select('students').lean();
+  const batchStudentIds = new Set();
+  batches.forEach((batch) => (batch.students || []).forEach((studentId) => batchStudentIds.add(String(studentId))));
+
+  return scopedStudentIds.filter((studentId) => batchStudentIds.has(String(studentId)));
+};
+
+const getAssessmentAttemptScope = async (req, assessmentId) => {
+  const assessment = await Assessment.findById(assessmentId).select('tenantId');
+  if (!assessment) {
+    const error = new Error('Assessment not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const scope = { assessment: assessmentId };
+  if (req.user.role === 'instructor') {
+    const access = await ensureInstructorTenantAccess(req.user, assessment.tenantId);
+    if (access.allowedInstitutions.length) {
+      scope.student = { $in: await getScopedStudentIds(req.user, assessment.tenantId) };
+    }
+  }
+  return scope;
+};
+
+const canAccessAssessmentForInstructor = async (req, assessment) => {
+  if (req.user.role !== 'instructor') return true;
+  if (!assessment.tenantId) return true;
+
+  const access = await ensureInstructorTenantAccess(req.user, assessment.tenantId);
+  if (!access.allowedInstitutions.length) return true;
+
+  const scopedStudentIds = await getScopedStudentIds(req.user, assessment.tenantId);
+  const scopedStudentIdSet = new Set(scopedStudentIds.map((id) => String(id)));
+
+  if (assessment.students?.length) {
+    return assessment.students.some((id) => scopedStudentIdSet.has(String(id)));
+  }
+
+  if (!assessment.batches?.length) return true;
+
+  const batches = await Batch.find({ _id: { $in: assessment.batches }, tenant: assessment.tenantId }).select('students').lean();
+  return batches.some((batch) => (batch.students || []).some((id) => scopedStudentIdSet.has(String(id))));
+};
 
 // Create assessment
 const createAssessment = async (req, res) => {
@@ -22,12 +79,13 @@ const createAssessment = async (req, res) => {
     let isPublic = false;
     if (batches === 'all' || (Array.isArray(batches) && batches.length === 0)) {
       isPublic = true;
-      const Batch = require('../models/Batch');
       const allBatches = await Batch.find({ tenant: finalTenantId });
       batchIds = allBatches.map(batch => batch._id);
     } else {
       batchIds = Array.isArray(batches) ? batches : [batches];
     }
+
+    const scopedStudents = await getScopedAssessmentStudents(req, finalTenantId, batchIds);
     
     const assessment = new Assessment({
       title,
@@ -39,6 +97,7 @@ const createAssessment = async (req, res) => {
       batches: batchIds,
       createdBy: req.user.id,
       tenantId: finalTenantId,
+      students: scopedStudents,
       status: 'draft',
       contestType: contestType || 'none',
       isPublic: isPublic,
@@ -77,7 +136,12 @@ const getAssessments = async (req, res) => {
       .select('+startTime')
       .sort({ createdAt: -1 });
     
-    const assessmentsWithCounts = assessments.map(assessment => {
+    const accessibleAssessments = [];
+    for (const assessment of assessments) {
+      if (await canAccessAssessmentForInstructor(req, assessment)) accessibleAssessments.push(assessment);
+    }
+
+    const assessmentsWithCounts = accessibleAssessments.map(assessment => {
       const assessmentData = assessment.toObject();
       const questionCounts = {
         programming: assessment.questions?.length || 0,
@@ -164,7 +228,12 @@ const getInstructorContests = async (req, res) => {
       .select('+startTime')
       .sort({ createdAt: -1 });
     
-    const contestsWithCounts = contests.map(assessment => {
+    const accessibleContests = [];
+    for (const assessment of contests) {
+      if (await canAccessAssessmentForInstructor(req, assessment)) accessibleContests.push(assessment);
+    }
+
+    const contestsWithCounts = accessibleContests.map(assessment => {
       const assessmentData = assessment.toObject();
       const questionCounts = {
         programming: assessment.questions?.length || 0,
@@ -206,6 +275,10 @@ const getAssessmentById = async (req, res) => {
     if (!assessment) {
       return res.status(404).json({ message: 'Assessment not found' });
     }
+
+    if (!(await canAccessAssessmentForInstructor(req, assessment))) {
+      return res.status(403).json({ message: 'Assessment is outside your allowed institutions' });
+    }
     
     const assessmentData = assessment.toObject();
     const questionCounts = {
@@ -234,10 +307,23 @@ const updateAssessment = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, duration, questions, batches, status } = req.body;
+    const existingAssessment = await Assessment.findById(id).select('tenantId');
+    if (!existingAssessment) {
+      return res.status(404).json({ message: 'Assessment not found' });
+    }
+
+    const updateData = { title, description, duration, questions, batches, status };
+    if (batches !== undefined) {
+      const batchIds = batches === 'all' || (Array.isArray(batches) && batches.length === 0)
+        ? (await Batch.find({ tenant: existingAssessment.tenantId }).select('_id')).map((batch) => batch._id)
+        : Array.isArray(batches) ? batches : [batches];
+      updateData.batches = batchIds;
+      updateData.students = await getScopedAssessmentStudents(req, existingAssessment.tenantId, batchIds);
+    }
 
     const assessment = await Assessment.findByIdAndUpdate(
       id,
-      { title, description, duration, questions, batches, status },
+      updateData,
       { new: true, runValidators: true }
     ).populate('questions');
     
@@ -383,9 +469,9 @@ const getAssessmentAttempts = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
-    const Student = require('../models/Student');
+    const scope = await getAssessmentAttemptScope(req, id);
     
-    const attempts = await AssessmentAttempt.find({ assessment: id })
+    const attempts = await AssessmentAttempt.find(scope)
       .populate('student', 'name email')
       .sort({ startedAt: -1 });
     
@@ -425,6 +511,10 @@ const handleStudentAction = async (req, res) => {
     const attempt = await AssessmentAttempt.findById(attemptId);
     if (!attempt) {
       return res.status(404).json({ message: 'Attempt not found' });
+    }
+    if (req.user.role === 'instructor') {
+      const student = await Student.findById(attempt.student).select('email institution').lean();
+      await ensureInstructorTenantAccess(req.user, attempt.tenantId, student?.institution || getInstitutionFromEmail(student?.email));
     }
     
     switch (action) {
@@ -471,7 +561,8 @@ const exportAssessmentResults = async (req, res) => {
       return res.status(404).json({ message: 'Assessment not found' });
     }
     
-    const attempts = await AssessmentAttempt.find({ assessment: id })
+    const scope = await getAssessmentAttemptScope(req, id);
+    const attempts = await AssessmentAttempt.find(scope)
       .populate('student', 'name email')
       .sort({ createdAt: -1 });
     
@@ -623,10 +714,11 @@ const expireAssessmentTimer = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
     // Find all attempts that should be completed for this assessment
     const attemptsToComplete = await AssessmentAttempt.find({ 
-      assessment: id, 
+      ...scope,
       attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED', 'RETAKE_ALLOWED'] }
     });
     
@@ -859,10 +951,11 @@ const markAllInProgressCompleted = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
     const result = await AssessmentAttempt.updateMany(
       { 
-        assessment: id, 
+        ...scope,
         attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED', 'RETAKE_ALLOWED'] }
       },
       {
@@ -887,10 +980,11 @@ const markAllInProgressResume = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
     const result = await AssessmentAttempt.updateMany(
       { 
-        assessment: id, 
+        ...scope,
         attemptStatus: { $in: ['IN_PROGRESS', 'RETAKE_ALLOWED'] }
       },
       {
@@ -914,10 +1008,11 @@ const markAllInProgressRetake = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
     const result = await AssessmentAttempt.updateMany(
       { 
-        assessment: id, 
+        ...scope,
         attemptStatus: { $in: ['IN_PROGRESS', 'RESUME_ALLOWED'] }
       },
       {
@@ -950,10 +1045,11 @@ const markAllCompletedResume = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
     const result = await AssessmentAttempt.updateMany(
       { 
-        assessment: id, 
+        ...scope,
         attemptStatus: 'COMPLETED'
       },
       {
@@ -976,8 +1072,9 @@ const deleteAllAttempts = async (req, res) => {
   try {
     const { id } = req.params;
     const AssessmentAttempt = require('../models/AssessmentAttempt');
+    const scope = await getAssessmentAttemptScope(req, id);
     
-    const result = await AssessmentAttempt.deleteMany({ assessment: id });
+    const result = await AssessmentAttempt.deleteMany(scope);
     
     res.json({ 
       message: 'All attempts deleted successfully', 
@@ -1049,7 +1146,7 @@ const getMultiAssessmentReport = async (req, res) => {
     }
     
     // Fetch all selected assessments
-    const assessments = await Assessment.find({ _id: { $in: assessmentIds } }).select('title _id');
+    const assessments = await Assessment.find({ _id: { $in: assessmentIds } }).select('title _id tenantId');
     
     // Build a map of assessment titles keyed by ID
     const assessmentMap = {};
@@ -1058,10 +1155,19 @@ const getMultiAssessmentReport = async (req, res) => {
     });
     
     // Fetch all attempts for these assessments
-    const attempts = await AssessmentAttempt.find({ 
+    const attemptQuery = { 
       assessment: { $in: assessmentIds },
       attemptStatus: { $in: ['COMPLETED', 'AUTO_SUBMITTED'] }
-    })
+    };
+    if (req.user.role === 'instructor') {
+      const tenantId = req.headers['x-tenant-id'] || assessments[0]?.tenantId;
+      const access = await ensureInstructorTenantAccess(req.user, tenantId);
+      if (access.allowedInstitutions.length) {
+        attemptQuery.student = { $in: await getScopedStudentIds(req.user, tenantId) };
+      }
+    }
+
+    const attempts = await AssessmentAttempt.find(attemptQuery)
     .populate('student', 'name email profile')
     .lean();
     

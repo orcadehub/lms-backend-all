@@ -1,14 +1,23 @@
 const Certificate = require('../models/Certificate');
 const Student = require('../models/Student');
+const { ensureInstructorTenantAccess, getScopedStudentIds } = require('../utils/studentAccess');
 
 exports.createCertificates = async (req, res) => {
   try {
     const { title, type, duration, startDate, issueDate, description, skills, studentIds, tenantId, signatureName, signatureDesignation, signatureName2, signatureDesignation2, design } = req.body;
+    await ensureInstructorTenantAccess(req.user, tenantId);
+    const scopedStudentIds = await getScopedStudentIds(req.user, tenantId);
+    const scopedStudentIdSet = new Set(scopedStudentIds.map((id) => String(id)));
+    const allowedStudentIds = (studentIds || []).filter((id) => scopedStudentIdSet.has(String(id)));
+
+    if (allowedStudentIds.length !== (studentIds || []).length) {
+      return res.status(403).json({ message: 'Some students are outside your allowed institutions' });
+    }
     
     // Iterate and create
     const createdCertificates = [];
     
-    for (const studentId of studentIds) {
+    for (const studentId of allowedStudentIds) {
       // Create new certificate instance
       // The PRE-VALIDATE hook will automatically mint the OH-DDMMYYYY-XXXXX format!
       const cert = new Certificate({
