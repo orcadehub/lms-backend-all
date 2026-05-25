@@ -191,7 +191,12 @@ router.get('/student/profile', validateApiKey, async (req, res) => {
       name: student.name,
       email: student.email,
       batch: student.profile?.batch || [],
-      tenant: req.tenant.name
+      tenant: req.tenant.name,
+      streak: student.streak || 0,
+      maxStreak: student.maxStreak || 0,
+      loginHistory: student.loginHistory || [],
+      codingProfiles: student.codingProfiles || {},
+      createdAt: student.createdAt
     });
   } catch (error) {
     console.error('Error fetching student profile:', error);

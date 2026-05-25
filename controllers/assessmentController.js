@@ -79,8 +79,7 @@ const createAssessment = async (req, res) => {
     let isPublic = false;
     if (batches === 'all' || (Array.isArray(batches) && batches.length === 0)) {
       isPublic = true;
-      const allBatches = await Batch.find({ tenant: finalTenantId });
-      batchIds = allBatches.map(batch => batch._id);
+      batchIds = [];
     } else {
       batchIds = Array.isArray(batches) ? batches : [batches];
     }
@@ -315,7 +314,7 @@ const updateAssessment = async (req, res) => {
     const updateData = { title, description, duration, questions, batches, status };
     if (batches !== undefined) {
       const batchIds = batches === 'all' || (Array.isArray(batches) && batches.length === 0)
-        ? (await Batch.find({ tenant: existingAssessment.tenantId }).select('_id')).map((batch) => batch._id)
+        ? []
         : Array.isArray(batches) ? batches : [batches];
       updateData.batches = batchIds;
       updateData.students = await getScopedAssessmentStudents(req, existingAssessment.tenantId, batchIds);
@@ -1203,7 +1202,7 @@ const getMultiAssessmentReport = async (req, res) => {
       const scores = Object.values(student.scores);
       if (scores.length > 0) {
         const total = scores.reduce((sum, score) => sum + score, 0);
-        student.averageScore = Math.round((total / scores.length) * 100) / 100;
+        student.averageScore = Math.round((total / assessmentIds.length) * 100) / 100;
       } else {
         student.averageScore = 0;
       }

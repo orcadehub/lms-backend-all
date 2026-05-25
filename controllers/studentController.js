@@ -344,7 +344,7 @@ const studentController = {
   // Update student profile (for students themselves)
   updateProfile: async (req, res) => {
     try {
-      const { name, phone, address } = req.body;
+      const { name, phone, address, surname, firstName, lastName, collegeName, rollNumber, dateOfBirth } = req.body;
       const student = await Student.findById(req.user.id);
 
       if (!student) {
@@ -356,6 +356,12 @@ const studentController = {
       if (!student.profile) student.profile = {};
       if (phone !== undefined) student.profile.phone = phone;
       if (address !== undefined) student.profile.address = address;
+      if (surname !== undefined) student.profile.surname = surname;
+      if (firstName !== undefined) student.profile.firstName = firstName;
+      if (lastName !== undefined) student.profile.lastName = lastName;
+      if (collegeName !== undefined) student.profile.collegeName = collegeName;
+      if (rollNumber !== undefined) student.profile.rollNumber = rollNumber;
+      if (dateOfBirth !== undefined) student.profile.dateOfBirth = dateOfBirth;
 
       await student.save();
 
@@ -576,6 +582,7 @@ const studentController = {
         }
       }
 
+      student.markModified('codingProfiles');
       await student.save();
       res.json({ message: 'Coding profiles connected successfully', student });
     } catch (error) {

@@ -225,6 +225,53 @@ const leaderboardController = {
       console.error('Error fetching contest leaderboard:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
+  },
+
+  getStreakLeaderboard: async (req, res) => {
+    try {
+      const userEmail = req.query.email;
+      const limit = parseInt(req.query.limit) || 100;
+
+      const isGlobal = req.query.global === 'true';
+      const query = { isActive: true };
+      
+      if (!isGlobal && userEmail) {
+        const emailDomain = userEmail.split('@')[1];
+        query.email = { $regex: `@${emailDomain}$`, $options: 'i' };
+      }
+
+      // Fetch students and sort by streak descending, then maxStreak descending
+      const students = await Student.find(query)
+        .select('name email profile streak maxStreak')
+        .sort({ streak: -1, maxStreak: -1 })
+        .lean();
+
+      const leaderboardData = students.map((student, index) => ({
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        profilePic: student.profile?.profilePic,
+        streak: student.streak || 0,
+        maxStreak: student.maxStreak || 0,
+        rank: index + 1
+      }));
+
+      const currentUserIndex = userEmail 
+        ? leaderboardData.findIndex(s => s.email.toLowerCase() === userEmail.toLowerCase())
+        : -1;
+        
+      const currentUserRank = currentUserIndex !== -1 ? leaderboardData[currentUserIndex].rank : 0;
+      const topData = leaderboardData.slice(0, Math.min(limit, 250));
+
+      res.json({
+        data: topData,
+        total: leaderboardData.length,
+        currentUserRank
+      });
+    } catch (error) {
+      console.error('Error fetching streak leaderboard:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 };
 

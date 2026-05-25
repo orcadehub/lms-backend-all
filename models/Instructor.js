@@ -56,7 +56,7 @@ const instructorSchema = new mongoose.Schema({
   }],
   permissions: [{
     type: String,
-    enum: ['create_quizzes', 'create_assessments', 'manage_contests', 'manage_company_specific', 'manage_practice_questions', 'manage_aptitude_questions', 'manage_students', 'manage_batches', 'view_reports', 'manage_study_materials', 'manage_certificates', 'view_analytics']
+    enum: ['create_quizzes', 'create_assessments', 'manage_contests', 'manage_company_specific', 'manage_practice_questions', 'manage_aptitude_questions', 'manage_students', 'manage_batches', 'view_reports', 'manage_certificates', 'view_analytics']
   }],
   isActive: {
     type: Boolean,
