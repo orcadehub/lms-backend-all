@@ -39,6 +39,7 @@ const partnerRoutes = require('./routes/partnerRoutes');
 const studentCourseRoutes = require('./routes/studentCourseRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const certificateDesignRoutes = require('./routes/certificateDesignRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import models to register them
@@ -171,6 +172,7 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/certificate-designs', certificateDesignRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Debug environment variables endpoint
 app.get('/api/debug/env', (req, res) => {

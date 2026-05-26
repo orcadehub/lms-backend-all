@@ -115,6 +115,14 @@ const studentSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isSubscribed: {
+    type: Boolean,
+    default: false
+  },
+  subscriptionActiveUntil: {
+    type: Date,
+    default: null
+  },
   resetPasswordOTP: {
     type: String
   },
