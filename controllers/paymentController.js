@@ -66,6 +66,8 @@ exports.initiatePayment = async (req, res) => {
     // Amount is Rs 20 (2000 Paise)
     const amount = 2000; 
 
+    const frontendUrl = req.body.frontendUrl || process.env.FRONTEND_URL || 'https://orcadehub.com';
+
     // Checkout V2 payload
     const payload = {
       merchantOrderId: merchantOrderId,
@@ -80,7 +82,7 @@ exports.initiatePayment = async (req, res) => {
         message: 'OrcadeHub Monthly Subscription - ₹20'
       },
       merchantUrls: {
-        redirectUrl: `${process.env.FRONTEND_URL || 'https://orcadehub.com'}/payment/status?orderId=${merchantOrderId}`,
+        redirectUrl: `${frontendUrl}/payment/status?orderId=${merchantOrderId}`,
         callbackUrl: `https://backend.orcadehub.com/api/payments/callback`
       }
     };
