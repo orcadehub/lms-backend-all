@@ -150,6 +150,7 @@ studentSchema.index({ email: 1, tenant: 1 }); // Compound index for multi-tenant
 studentSchema.index({ tenant: 1, isActive: 1 }); // Index for active students by tenant
 studentSchema.index({ tenant: 1, institution: 1 });
 studentSchema.index({ createdByInstructor: 1, tenant: 1 });
+studentSchema.index({ tenant: 1, lastActiveAt: -1 }); // Optimize getActiveStudentCount query
 
 studentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

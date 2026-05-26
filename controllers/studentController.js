@@ -44,6 +44,48 @@ const studentController = {
     }
   },
 
+  // Get capacity info for tenant and instructor
+  getCapacityInfo: async (req, res) => {
+    try {
+      const { tenantId } = req.query;
+      const selectedTenantId = tenantId || (req.user.assignedTenants && req.user.assignedTenants[0]);
+
+      if (!selectedTenantId) {
+        return res.status(400).json({ message: 'Tenant ID is required' });
+      }
+
+      const tenant = await Tenant.findById(selectedTenantId).lean();
+      if (!tenant) {
+        return res.status(404).json({ message: 'Tenant not found' });
+      }
+
+      const tenantStudentsCount = await Student.countDocuments({ tenant: selectedTenantId });
+
+      let instructorStudentsCount = 0;
+      let instructorMaxStudents = 0;
+      const isInstructor = req.user.role === 'instructor';
+
+      if (isInstructor) {
+        const access = await ensureInstructorTenantAccess(req.user, selectedTenantId);
+        instructorMaxStudents = access?.grant?.maxStudents || 0;
+        instructorStudentsCount = await Student.countDocuments({
+          tenant: selectedTenantId,
+          createdByInstructor: req.user._id || req.user.id
+        });
+      }
+
+      res.json({
+        tenantMaxStudents: tenant.maxStudents || 0,
+        tenantStudentsCount,
+        instructorMaxStudents,
+        instructorStudentsCount,
+        isInstructor
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ message: error.message || 'Server error', error: error.message });
+    }
+  },
+
   // Create new student
   createStudent: async (req, res) => {
     try {
@@ -583,10 +625,12 @@ const studentController = {
       }
 
       student.markModified('codingProfiles');
-      await student.save();
+      await student.save({ validateModifiedOnly: true });
       res.json({ message: 'Coding profiles connected successfully', student });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      require('fs').appendFileSync('error_debug.log', error.stack + '\n');
+      console.error('Error in connectCodingProfiles:', error);
+      res.status(500).json({ message: 'Server error', error: error.message, stack: error.stack });
     }
   },
 

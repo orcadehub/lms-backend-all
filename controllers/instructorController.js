@@ -100,6 +100,32 @@ const instructorController = {
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
+  },
+
+  // Proxy payout details from internal.campuscredentials.com
+  getPayoutDetails: async (req, res) => {
+    try {
+      const { m, y, t_id } = req.body;
+      
+      if (!m || !y || !t_id) {
+        return res.status(400).json({ message: 'Month (m), Year (y), and Trainer ID (t_id) are required.' });
+      }
+
+      // We use native fetch to call the API
+      const response = await fetch('https://internal.campuscredentials.com/trainer/my_monthly_payout.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `action=fetch_payout_ajax&m=${encodeURIComponent(m)}&y=${encodeURIComponent(y)}&t_id=${encodeURIComponent(t_id)}`
+      });
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching payout details:', error);
+      res.status(500).json({ message: 'Failed to fetch payout data from campuscredentials', error: error.message });
+    }
   }
 };
 

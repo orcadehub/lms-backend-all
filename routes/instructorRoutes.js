@@ -26,4 +26,7 @@ router.put('/:id', auth, authorize('admin'), [
 // Delete instructor (admin only)
 router.delete('/:id', auth, authorize('admin'), instructorController.deleteInstructor);
 
+// Proxy route for fetching payouts from internal.campuscredentials.com
+router.post('/payouts', auth, instructorController.getPayoutDetails);
+
 module.exports = router;

@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 const { validateApiKey } = require('../middleware/apiKeyAuth');
-const { assertStudentCanLogin, getInstitutionFromEmail } = require('../utils/studentAccess');
+const { assertStudentCanLogin, getInstitutionFromEmail, assertStudentCapacity } = require('../utils/studentAccess');
 
 const router = express.Router();
 
@@ -123,6 +123,9 @@ router.post('/student/register', validateApiKey, async (req, res) => {
     if (existingStudent) {
       return res.status(400).json({ message: 'Email already registered in this tenant' });
     }
+
+    // Check capacity limit
+    await assertStudentCapacity({ tenantId, requestedCount: 1 });
 
     // Create new student
     const student = new Student({

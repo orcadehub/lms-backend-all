@@ -31,6 +31,12 @@ router.delete('/admin/batch/:batchId', auth, authorize('admin'), studentControll
 router.patch('/admin/batch/:batchId/access', auth, authorize('admin'), studentController.adminSetBatchAccess);
 router.patch('/admin/tenant/:tenantId/institution/:institution/access', auth, authorize('admin'), studentController.adminSetInstitutionAccess);
 
+// Get student capacity info
+router.get('/capacity-info', auth, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  return checkPermission('manage_students')(req, res, next);
+}, studentController.getCapacityInfo);
+
 // Get all students (instructor only)
 router.get('/', auth, (req, res, next) => {
   if (req.user.role === 'admin') return next();
