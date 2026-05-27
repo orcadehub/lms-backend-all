@@ -408,7 +408,7 @@ const updateAssessmentTime = async (req, res) => {
       updateData.status = status;
     }
     
-    if (duration !== undefined && duration >= 30 && duration <= 300) {
+    if (duration !== undefined && duration >= 5 && duration <= 300) {
       updateData.duration = duration;
     }
     
