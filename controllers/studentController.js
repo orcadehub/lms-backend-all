@@ -156,6 +156,7 @@ const studentController = {
       const { defaultPassword, tenantId } = req.body;
       const selectedTenantId = tenantId || req.user.assignedTenants[0];
       const access = await ensureInstructorTenantAccess(req.user, selectedTenantId);
+      const allowedInstitutions = access?.allowedInstitutions || [];
       
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -180,7 +181,7 @@ const studentController = {
           continue;
         }
 
-        if (access.allowedInstitutions.length > 0 && !access.allowedInstitutions.includes(institution)) {
+        if (allowedInstitutions.length > 0 && !allowedInstitutions.includes(institution)) {
           failedUploads.push({ name, email, reason: 'Institution is not allowed for this instructor' });
           continue;
         }
