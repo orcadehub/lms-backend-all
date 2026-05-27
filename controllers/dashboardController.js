@@ -269,13 +269,31 @@ exports.getAdminStats = async (req, res) => {
 exports.getInstructorStats = async (req, res) => {
   try {
     const tenantId = req.headers['x-tenant-id'];
+    const { batch } = req.query;
     if (req.user.role === 'instructor') {
       await ensureInstructorTenantAccess(req.user, tenantId);
     }
     
-    const tenantQuery = tenantId ? await buildStudentScope(req.user, tenantId) : {};
-    const tenantIdQuery = tenantId ? { tenantId: tenantId } : {};
+    let tenantQuery = tenantId ? await buildStudentScope(req.user, tenantId) : {};
+    let tenantIdQuery = tenantId ? { tenantId: tenantId } : {};
     const instructorQuery = tenantId ? { assignedTenants: tenantId } : {};
+
+    if (batch && batch !== 'all') {
+      const batchDoc = await Batch.findOne({ tenant: tenantId, name: batch }).lean();
+      if (batchDoc) {
+        tenantQuery = {
+          ...tenantQuery,
+          _id: { $in: (batchDoc.students || []).map(id => id.toString()) }
+        };
+        tenantIdQuery = {
+          ...tenantIdQuery,
+          batches: batchDoc._id
+        };
+      } else {
+        tenantQuery = { ...tenantQuery, _id: { $in: [] } };
+        tenantIdQuery = { ...tenantIdQuery, _id: null };
+      }
+    }
 
     // Get all students for the tenant to calculate institutions by unique email domains
     const students = await Student.find(tenantQuery).select('email').lean();
