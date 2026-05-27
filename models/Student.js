@@ -123,6 +123,11 @@ const studentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  subscriptionType: {
+    type: String,
+    enum: ['free', 'paid', null],
+    default: null
+  },
   resetPasswordOTP: {
     type: String
   },

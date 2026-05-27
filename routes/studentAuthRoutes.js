@@ -92,7 +92,8 @@ router.post('/student/login', validateApiKey, async (req, res) => {
         batch: student.profile?.batch || [],
         tenant: req.tenant.name,
         isSubscribed: student.isSubscribed || false,
-        subscriptionActiveUntil: student.subscriptionActiveUntil || null
+        subscriptionActiveUntil: student.subscriptionActiveUntil || null,
+        subscriptionType: student.subscriptionType || null
       }
     });
 
@@ -162,7 +163,8 @@ router.post('/student/register', validateApiKey, async (req, res) => {
         batch: [],
         tenant: req.tenant.name,
         isSubscribed: student.isSubscribed || false,
-        subscriptionActiveUntil: student.subscriptionActiveUntil || null
+        subscriptionActiveUntil: student.subscriptionActiveUntil || null,
+        subscriptionType: student.subscriptionType || null
       }
     });
   } catch (error) {
@@ -205,7 +207,8 @@ router.get('/student/profile', validateApiKey, async (req, res) => {
       codingProfiles: student.codingProfiles || {},
       createdAt: student.createdAt,
       isSubscribed: student.isSubscribed || false,
-      subscriptionActiveUntil: student.subscriptionActiveUntil || null
+      subscriptionActiveUntil: student.subscriptionActiveUntil || null,
+      subscriptionType: student.subscriptionType || null
     });
   } catch (error) {
     console.error('Error fetching student profile:', error);

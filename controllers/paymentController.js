@@ -1,5 +1,7 @@
 const axios = require('axios');
 const Student = require('../models/Student');
+const SiteConfig = require('../models/SiteConfig');
+const Payment = require('../models/Payment');
 
 // PhonePe Checkout V2 credentials from env
 const PHONEPE_CLIENT_ID = process.env.PHONEPE_CLIENT_ID || 'SU2505131803078818264199';
@@ -63,8 +65,36 @@ exports.initiatePayment = async (req, res) => {
 
     const merchantOrderId = `ORD_${Date.now()}_${studentId.toString().slice(-6)}`;
     
-    // Amount is Rs 20 (2000 Paise)
-    const amount = 2000; 
+    // Fetch dynamic subscription amount from SiteConfig
+    const siteConfig = await SiteConfig.getConfig();
+    
+    // If free access is enabled, no payment needed
+    if (siteConfig.isFreeAccess || siteConfig.subscriptionAmount === 0) {
+      // Directly activate subscription
+      const activeUntil = new Date();
+      activeUntil.setDate(activeUntil.getDate() + 30);
+      await Student.findByIdAndUpdate(studentId, {
+        isSubscribed: true,
+        subscriptionActiveUntil: activeUntil,
+        subscriptionType: 'free'
+      });
+      // Create free payment history entry
+      await Payment.create({
+        student: studentId,
+        merchantOrderId,
+        amount: 0,
+        status: 'SUCCESS',
+        type: 'free'
+      });
+      return res.status(200).json({
+        success: true,
+        freeAccess: true,
+        message: 'Free subscription activated for 30 days'
+      });
+    }
+
+    const amount = siteConfig.subscriptionAmount; // Amount in paise from config
+    const amountInRupees = amount / 100;
 
     const frontendUrl = req.body.frontendUrl || process.env.FRONTEND_URL || 'https://orcadehub.com';
 
@@ -79,14 +109,21 @@ exports.initiatePayment = async (req, res) => {
       },
       paymentFlow: {
         type: 'PG_CHECKOUT',
-        message: 'OrcadeHub Monthly Subscription - ₹20'
+        message: `OrcadeHub Monthly Subscription - ₹${amountInRupees}`
       },
       merchantUrls: {
         redirectUrl: `${frontendUrl}/payment/status?orderId=${merchantOrderId}`,
         callbackUrl: `https://backend.orcadehub.com/api/payments/callback`
       }
     };
-
+    // Create pending payment log
+    await Payment.create({
+      student: studentId,
+      merchantOrderId,
+      amount,
+      status: 'PENDING',
+      type: 'paid'
+    });
     const response = await axios.post(
       CHECKOUT_URL,
       payload,
@@ -162,9 +199,16 @@ exports.checkPaymentStatus = async (req, res) => {
         userId,
         {
           isSubscribed: true,
-          subscriptionActiveUntil: activeUntil
+          subscriptionActiveUntil: activeUntil,
+          subscriptionType: 'paid'
         },
         { new: true }
+      );
+
+      // Update payment record to success
+      await Payment.findOneAndUpdate(
+        { merchantOrderId: transactionId },
+        { status: 'SUCCESS' }
       );
 
       return res.status(200).json({
@@ -176,10 +220,17 @@ exports.checkPaymentStatus = async (req, res) => {
           name: updatedStudent?.name,
           email: updatedStudent?.email,
           isSubscribed: updatedStudent?.isSubscribed,
-          subscriptionActiveUntil: updatedStudent?.subscriptionActiveUntil
+          subscriptionActiveUntil: updatedStudent?.subscriptionActiveUntil,
+          subscriptionType: updatedStudent?.subscriptionType
         }
       });
     } else if (orderData && orderData.state === 'FAILED') {
+      // Update payment record to failed
+      await Payment.findOneAndUpdate(
+        { merchantOrderId: transactionId },
+        { status: 'FAILED' }
+      );
+
       return res.status(200).json({
         success: false,
         code: 'PAYMENT_FAILED',
@@ -223,8 +274,16 @@ exports.paymentCallback = async (req, res) => {
           activeUntil.setDate(activeUntil.getDate() + 30);
           await Student.findByIdAndUpdate(studentId, {
             isSubscribed: true,
-            subscriptionActiveUntil: activeUntil
+            subscriptionActiveUntil: activeUntil,
+            subscriptionType: 'paid'
           });
+          const merchantOrderId = decodedPayload.data.merchantTransactionId || decodedPayload.data.merchantOrderId;
+          if (merchantOrderId) {
+            await Payment.findOneAndUpdate(
+              { merchantOrderId },
+              { status: 'SUCCESS' }
+            );
+          }
           console.log(`Payment Webhook (legacy): Activated subscription for ${studentId}`);
         }
         return res.status(200).send('OK');
@@ -243,8 +302,14 @@ exports.paymentCallback = async (req, res) => {
 
         await Student.findByIdAndUpdate(studentId, {
           isSubscribed: true,
-          subscriptionActiveUntil: activeUntil
+          subscriptionActiveUntil: activeUntil,
+          subscriptionType: 'paid'
         });
+
+        await Payment.findOneAndUpdate(
+          { merchantOrderId },
+          { status: 'SUCCESS' }
+        );
 
         console.log(`Payment Webhook V2: Activated subscription for Student ${studentId}, Order: ${merchantOrderId}`);
       } else {
@@ -256,5 +321,23 @@ exports.paymentCallback = async (req, res) => {
   } catch (error) {
     console.error('PhonePe Webhook callback error:', error.message);
     res.status(500).send('Internal Server Error');
+  }
+};
+
+/**
+ * Get payment history for authenticated student
+ */
+exports.getPaymentHistory = async (req, res) => {
+  try {
+    const studentId = req.userId || req.user?.id || req.user?._id;
+    if (!studentId) {
+      return res.status(400).json({ message: 'Authentication required' });
+    }
+    const payments = await Payment.find({ student: studentId })
+      .sort({ createdAt: -1 });
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    res.status(500).json({ message: 'Server error fetching payment history' });
   }
 };
