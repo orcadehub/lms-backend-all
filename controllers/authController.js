@@ -2,9 +2,7 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const Admin = require('../models/Admin');
 const Instructor = require('../models/Instructor');
-const Student = require('../models/Student');
 const Tenant = require('../models/Tenant');
-const { assertStudentCanLogin, getInstitutionFromEmail } = require('../utils/studentAccess');
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -35,12 +33,6 @@ const authController = {
         if (user) userModel = 'Instructor';
       }
 
-      // Check in Student collection if not found in others
-      if (!user) {
-        user = await Student.findOne({ email });
-        if (user) userModel = 'Student';
-      }
-
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
@@ -52,29 +44,6 @@ const authController = {
       }
 
       const token = generateToken(user._id, user.role);
-
-      // Record activity if student
-      if (userModel === 'Student') {
-        const tenant = await Tenant.findById(user.tenant);
-        if (!tenant || !tenant.isActive) {
-          return res.status(403).json({ message: 'Tenant access is blocked' });
-        }
-        if (!user.institution) {
-          user.institution = getInstitutionFromEmail(user.email);
-        }
-        await assertStudentCanLogin(user, tenant);
-        user.lastActiveAt = new Date();
-        // Check if today's date already exists in history to avoid duplicates
-        const today = new Date().toISOString().split('T')[0];
-        const lastLogin = user.loginHistory.length > 0 
-          ? user.loginHistory[user.loginHistory.length - 1].toISOString().split('T')[0] 
-          : null;
-        
-        if (today !== lastLogin) {
-          user.loginHistory.push(new Date());
-        }
-        await user.save();
-      }
 
       res.json({
         message: 'Login successful',
